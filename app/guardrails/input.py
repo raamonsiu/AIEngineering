@@ -39,15 +39,39 @@ class InputGuardrailViolation(Exception):
 
 
 # --- Prompt injection patterns ----------------------------------------------
+#
+# The estimator explicitly accepts descriptions in any language (the system
+# prompt translates the *output* to English, not the input) - so an
+# English-only pattern list is a real gap, not just incompleteness. Each
+# pattern below is duplicated for Spanish, since that's the other language
+# this service is actually used in.
 
 _PROMPT_INJECTION_PATTERNS: list[re.Pattern[str]] = [
+    # ignore previous instructions / ignora las instrucciones anteriores
     re.compile(r"ignore\s+(previous|prior|all|the)\s+(instructions?|prompts?|rules?)", re.IGNORECASE),
+    re.compile(
+        r"ignora(r)?\s+(todas?\s+)?(las?\s+)?(instrucciones|reglas|[oó]rdenes|prompts?)"
+        r"(\s+(anteriores|previas|dadas))?",
+        re.IGNORECASE,
+    ),
     re.compile(r"</?\s*(system|instructions?|prompt)\s*>", re.IGNORECASE),
+    # new instructions: / nuevas instrucciones:
     re.compile(r"new\s+instructions?\s*[:.\-]", re.IGNORECASE),
+    re.compile(r"nuevas?\s+instrucciones\s*[:.\-]", re.IGNORECASE),
+    # forget everything / olvida todo lo anterior
     re.compile(r"forget\s+(everything|all|previous)", re.IGNORECASE),
+    re.compile(r"olvida\s+(todo|todas\s+las\s+instrucciones|lo\s+anterior)", re.IGNORECASE),
+    # you are now / ahora eres, actúa como
     re.compile(r"\byou\s+are\s+now\b", re.IGNORECASE),
+    re.compile(r"\bahora\s+(eres|act[uú]as?\s+como)\b", re.IGNORECASE),
+    # disregard ... instructions / desestima ... instrucciones, haz caso omiso
     re.compile(
         r"\bdisregard\b.{0,40}\b(instructions?|prompts?|rules?|context|previous|prior)",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    re.compile(
+        r"\b(desestima|haz\s+caso\s+omiso)\b.{0,40}\b(instrucciones|reglas|contexto|"
+        r"prompt|anterior(es)?|previ[ao]s?)",
         re.IGNORECASE | re.DOTALL,
     ),
 ]
