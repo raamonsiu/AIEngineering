@@ -32,6 +32,8 @@ def get_llm_wrapper() -> LLMWrapper:
         anthropic_api_key=settings.ANTHROPIC_API_KEY,
         primary_model=settings.PRIMARY_MODEL,
         fallback_model=settings.FALLBACK_MODEL,
+        metadata_extractor_model=settings.METADATA_EXTRACTOR_MODEL,
+        metadata_extractor_fallback_model=settings.METADATA_EXTRACTOR_FALLBACK_MODEL,
         timeout=settings.LLM_TIMEOUT,
         num_retries=settings.LLM_RETRIES,
         cache=get_cache(),
@@ -85,9 +87,10 @@ def get_semantic_cache() -> EstimationSemanticCache | None:
 
 @lru_cache
 def get_session_store() -> SessionStore:
-    """Process-local, in-memory session registry (see ``app/sessions.py`` for
-    why no database/Redis is involved). ``lru_cache`` makes this a singleton
-    for the process's lifetime, same as the other dependencies here."""
+    """Process-local, in-memory session registry (see ``app/sessions/models.py``
+    for why no database/Redis is involved). ``lru_cache`` makes this a
+    singleton for the process's lifetime, same as the other dependencies
+    here."""
     return SessionStore(max_turns=get_settings().MAX_TURNS)
 
 
@@ -100,4 +103,6 @@ def get_estimation_service() -> EstimationService:
         semantic_cache=get_semantic_cache(),
         openai_client=get_openai_client(),
         prompt_version=settings.PROMPT_VERSION,
+        conversational_prompt_version=settings.CONVERSATIONAL_PROMPT_VERSION,
+        max_attachment_words=settings.MAX_ATTACHMENT_WORDS,
     )

@@ -2,7 +2,14 @@
 
 The on-disk layout is ``app/prompts/<use_case>/<version>/<role>.j2``. Versioning
 is required from day one: switching prompts becomes a config change
-(``PROMPT_VERSION`` in settings), not a code refactor.
+(``PROMPT_VERSION`` / ``CONVERSATIONAL_PROMPT_VERSION`` in settings), not a
+code refactor.
+
+This module takes primitives (dicts, JSON strings, booleans, enum values) for
+anything domain-shaped rather than importing the domain models themselves
+(``ProjectMetadata`` and friends live in ``app.sessions``), a templating
+utility has no reason to depend on the session/estimation domain, and callers
+already have the model instance to hand when they call in.
 """
 
 from __future__ import annotations
@@ -13,7 +20,7 @@ from pathlib import Path
 import structlog
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from app.schemas.estimation import DetailLevel, EstimationRequest, OutputFormat, ProjectMetadata, ProjectType
+from app.schemas.estimation import DetailLevel, EstimationRequest, OutputFormat, ProjectType
 
 log = structlog.get_logger()
 
@@ -33,7 +40,8 @@ def render_estimation_prompt(
     request: EstimationRequest,
     version: str = "v1",
 ) -> tuple[str, str]:
-    """Render the system and user prompts for the estimation use case.
+    """Render the system and user prompts for the single-shot estimation use
+    case.
 
     Returns:
         A tuple ``(system_prompt, user_prompt)`` ready to be sent to the LLM as
@@ -44,7 +52,6 @@ def render_estimation_prompt(
         "project_type": request.project_type.value,
         "detail_level": request.detail_level.value,
         "output_format": request.output_format.value,
-        "project_metadata": None,
     }
     system = _env.get_template(f"estimation/{version}/system.j2").render(**context)
     user = _env.get_template(f"estimation/{version}/user.j2").render(**context)
@@ -67,27 +74,24 @@ def render_session_prompt(
     project_type: ProjectType,
     detail_level: DetailLevel,
     output_format: OutputFormat,
-    project_metadata: ProjectMetadata,
+    project_metadata: dict,
+    metadata_is_empty: bool,
     attachments_block: str = "",
-    version: str = "v1",
+    version: str = "v2",
 ) -> tuple[str, str]:
-    """Render the system and user prompts for one turn of a session.
-
-    Same system template as the single-shot flow, the ``<project_metadata>``
-    block is what differs turn to turn, but a dedicated user template, since
-    the session turn carries a transcript plus an optional attachments block
-    instead of a single free-text ``description``.
+    """Render the system and user prompts for one turn of a conversational
+    session. Its own dedicated version (``v2`` by default) so the
+    conversational prompt can evolve independently of the single-shot one.
     """
     system_context = {
         "project_type": project_type.value,
         "detail_level": detail_level.value,
         "output_format": output_format.value,
-        # Every field always present (no exclude_none): StrictUndefined would
-        # raise on a template access to a key that got dropped for being None.
-        "project_metadata": project_metadata.model_dump() if project_metadata else None,
+        "project_metadata": project_metadata,
+        "metadata_is_empty": metadata_is_empty,
     }
     system = _env.get_template(f"estimation/{version}/system.j2").render(**system_context)
-    user = _env.get_template(f"estimation/{version}/session_user.j2").render(
+    user = _env.get_template(f"estimation/{version}/user.j2").render(
         transcript=transcript,
         attachments_block=attachments_block,
         project_type=project_type.value,
@@ -105,16 +109,18 @@ def render_session_prompt(
 
 def render_metadata_extraction_prompt(
     *,
-    current_metadata: ProjectMetadata,
+    current_metadata_json: str,
+    previous_is_empty: bool,
     user_turn: str,
-    assistant_summary: str,
+    assistant_content: str,
     version: str = "v1",
 ) -> str:
     """Render the extraction prompt for updating ``ProjectMetadata`` after a
     turn. A single free-standing prompt (no separate system/user split) since
     it drives one small, self-contained structured-output call."""
     return _env.get_template(f"estimation/{version}/metadata_extraction.j2").render(
-        current_metadata_json=current_metadata.model_dump_json(),
+        current_metadata_json=current_metadata_json,
+        previous_is_empty=previous_is_empty,
         user_turn=user_turn,
-        assistant_summary=assistant_summary,
+        assistant_content=assistant_content,
     )

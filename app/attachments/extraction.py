@@ -24,7 +24,7 @@ Extraction is a self-validating pipeline, not a single best-effort call:
 from __future__ import annotations
 
 import io
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import structlog
 from pypdf import PdfReader
@@ -39,7 +39,7 @@ MIN_PRINTABLE_RATIO = 0.85
 class ExtractionResult:
     filename: str
     text: str
-    method: str  # "pypdf" | "pymupdf" | "docx" | "failed"
+    method: str  # "pypdf" | "pymupdf" | "docx" | "too_long" | "failed"
     ok: bool
     note: str | None = None
 
@@ -151,6 +151,35 @@ def extract_attachment(filename: str, raw: bytes) -> ExtractionResult:
             error=str(exc)[:200],
         )
         return ExtractionResult(filename, "", "failed", False, note=f"extraction error: {exc}")
+
+
+def check_length(text: str, max_words: int) -> tuple[bool, str | None]:
+    """Abstracted, non-technical size check: word count, not tokens, a
+    number a non-technical user can actually reason about. Deliberately
+    reports both the absolute count and the multiple over the limit, so the
+    user can tell "barely over" from "an order of magnitude too big"."""
+    word_count = len(text.split())
+    if word_count <= max_words:
+        return True, None
+    ratio = word_count / max_words
+    return False, (
+        f"El documento tiene unas {word_count:,} palabras; el máximo admitido "
+        f"es {max_words:,} (~{ratio:.1f}x lo permitido)."
+    )
+
+
+def enforce_length_limit(result: ExtractionResult, max_words: int) -> ExtractionResult:
+    """Downgrade an otherwise-successful extraction to a reported failure
+    when its text is too long. This runs AFTER extraction succeeds, and is
+    deliberately not folded into the multimodal fallback: the problem here
+    is size/cost, not readability, so re-sending the same content as a raw
+    file to the LLM would make the cost problem worse, not solve it."""
+    if not result.ok:
+        return result
+    ok, note = check_length(result.text, max_words)
+    if ok:
+        return result
+    return replace(result, ok=False, text="", method="too_long", note=note)
 
 
 def format_attachments_block(results: list[ExtractionResult]) -> str:

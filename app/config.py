@@ -40,6 +40,21 @@ class Settings(BaseSettings):
     ESTIMATOR_API_BASE_URL: str = "http://localhost:8000"
 
     MAX_TURNS: int = 6
+    # The conversational flow uses its own prompt version, separate from the
+    # single-shot PROMPT_VERSION: it needs the <project_metadata> block and a
+    # different framing, versioned independently so iterating on one flow's
+    # prompt never risks the other's cache/behaviour.
+    CONVERSATIONAL_PROMPT_VERSION: str = "v2"
+    # Hard cap per extracted attachment, in WORDS (not tokens - the number
+    # means something to a non-technical user). An oversized attachment is
+    # reported back as a failed attachment rather than silently truncated, so
+    # the user knows content was dropped instead of getting a partial answer.
+    MAX_ATTACHMENT_WORDS: int = 8000
+    # The metadata extractor runs once per turn; a small/cheap model is
+    # enough, and it gets its own primary/fallback pair so a flaky provider
+    # doesn't break metadata refresh even though it's a "side" call.
+    METADATA_EXTRACTOR_MODEL: str = "gpt-4o-mini"
+    METADATA_EXTRACTOR_FALLBACK_MODEL: str = "claude-haiku-4-5-20251001"
 
     @model_validator(mode="after")
     def validate_at_least_one_api_key(self) -> "Settings":

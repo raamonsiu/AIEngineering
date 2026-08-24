@@ -464,6 +464,9 @@ with session_tab:
     if st.session_state.session_attachments:
         st.subheader("Attachments (last turn)")
         st.table(st.session_state.session_attachments)
+        for attachment in st.session_state.session_attachments:
+            if attachment.get("method") == "too_long":
+                st.warning(f"**{attachment['filename']}**: {attachment.get('note')}")
 
     with st.expander("project_metadata, durable facts, separate from history", expanded=True):
         if st.session_state.session_metadata:

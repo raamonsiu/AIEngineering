@@ -29,13 +29,12 @@ import json
 
 import structlog
 
-from app.attachments import extract_attachment, format_attachments_block
+from app.attachments import enforce_length_limit, extract_attachment, format_attachments_block
 from app.cache.semantic import EstimationSemanticCache
 from app.guardrails.input import check_input
 from app.guardrails.output import enforce_scope_response
 from app.prompts import render_estimation_prompt, render_session_prompt
 from app.schemas.estimation import (
-    AttachmentReport,
     CallMeta,
     DetailLevel,
     EstimationDraft,
@@ -44,11 +43,10 @@ from app.schemas.estimation import (
     EstimationResult,
     OutputFormat,
     ProjectType,
-    SessionEstimateResponse,
 )
 from app.services.cache import EstimationCache
 from app.services.llm_wrapper import LLMWrapper
-from app.sessions import Session
+from app.sessions import AttachmentReport, Session, SessionEstimateResponse, update_metadata
 
 log = structlog.get_logger()
 
@@ -81,12 +79,16 @@ class EstimationService:
         semantic_cache: EstimationSemanticCache | None = None,
         openai_client=None,
         prompt_version: str = "v1",
+        conversational_prompt_version: str = "v2",
+        max_attachment_words: int = 8000,
     ) -> None:
         self.llm_wrapper = llm_wrapper
         self.exact_cache = exact_cache
         self.semantic_cache = semantic_cache
         self.openai_client = openai_client
         self.prompt_version = prompt_version
+        self.conversational_prompt_version = conversational_prompt_version
+        self.max_attachment_words = max_attachment_words
 
     def estimate(self, request: EstimationRequest) -> EstimationResponse:
         # 1. Input guardrails, raises InputGuardrailViolation on rejection.
@@ -185,20 +187,23 @@ class EstimationService:
         Pipeline:
             1. Input guardrails on the raw transcript.
             2. Remember any typed selectors this turn supplied.
-            3. Extract attachments locally, falling back to the LLM's native
-               file support for anything local extraction couldn't validate.
-            4. Render the system prompt (with project_metadata) + user turn.
+            3. Extract attachments locally (enforcing a length cap), falling
+               back to the LLM's native file support for anything local
+               extraction couldn't validate.
+            4. Render the system prompt (with project_metadata) + user turn,
+               using the dedicated conversational prompt version.
             5. LLM call over session.history + this turn's messages, degrading
                to a text-only retry if the multimodal fallback itself fails.
             6. Output guardrail.
-            7. Update history (compact assistant summary, not raw JSON) and
-               project_metadata (LLM extractor).
+            7. Append the turn to history (the full result JSON, not a
+               summary) and refresh project_metadata via the extractor +
+               deterministic merge (see ``app.sessions.update_metadata``).
         """
         check_input(transcript, openai_client=self.openai_client)
         self._apply_session_selectors(session, project_type, detail_level, output_format)
 
         attachments_block, multimodal_blocks, attachment_reports = self._process_attachments(
-            attachment_files
+            attachment_files, max_words=self.max_attachment_words
         )
 
         system_prompt, user_message = render_session_prompt(
@@ -206,11 +211,12 @@ class EstimationService:
             project_type=session.project_type,
             detail_level=session.detail_level,
             output_format=session.output_format,
-            project_metadata=session.project_metadata,
+            project_metadata=session.project_metadata.model_dump(),
+            metadata_is_empty=session.project_metadata.is_empty(),
             attachments_block=attachments_block,
-            version=self.prompt_version,
+            version=self.conversational_prompt_version,
         )
-        messages = session.history.to_messages_list(system_prompt)
+        messages = [{"role": "system", "content": system_prompt}, *session.history.to_messages()]
         user_content = (
             [{"type": "text", "text": user_message}, *multimodal_blocks]
             if multimodal_blocks
@@ -235,13 +241,16 @@ class EstimationService:
             )
 
         result = enforce_scope_response(EstimationResult.from_draft(draft))
-        summary = (
-            f"{result.summary} (confidence {result.confidence_pct}%, "
-            f"{result.total_duration_weeks} weeks, {result.total_cost_eur} EUR)"
-        )
-        session.history.add_turn(user_message, summary)
-        session.project_metadata = self.llm_wrapper.extract_metadata(
-            current=session.project_metadata, user_turn=transcript, assistant_summary=summary
+        # The full result JSON, not a hand-rolled summary: it's what the
+        # metadata extractor reads too, and re-deriving a compact string here
+        # would just be a lossier copy of data we already have.
+        assistant_content = result.model_dump_json()
+        session.history.append(user=user_message, assistant=assistant_content)
+        session.project_metadata = update_metadata(
+            previous=session.project_metadata,
+            transcript=transcript,
+            result=result,
+            llm_wrapper=self.llm_wrapper,
         )
 
         log.info(
@@ -255,7 +264,7 @@ class EstimationService:
 
         return SessionEstimateResponse(
             result=result,
-            prompt_version=self.prompt_version,
+            prompt_version=self.conversational_prompt_version,
             cached=False,
             meta=CallMeta(**meta),
             session_id=session.session_id,
@@ -283,16 +292,26 @@ class EstimationService:
     @staticmethod
     def _process_attachments(
         attachment_files: list[tuple[str, str | None, bytes]],
+        *,
+        max_words: int,
     ) -> tuple[str, list[dict], list[AttachmentReport]]:
-        """Extract text locally; for files that fail validation, build an LLM
-        multimodal fallback block (PDFs only, that's what providers' inline
-        file input actually targets) or, for anything else, a plain textual
-        failure note. Returns ``(attachments_block, multimodal_blocks, reports)``.
+        """Extract text locally, enforce the length cap, and for files that
+        fail validation (not size, see below) build an LLM multimodal
+        fallback block (PDFs only, that's what providers' inline file input
+        actually targets) or, for anything else, a plain textual failure
+        note. Returns ``(attachments_block, multimodal_blocks, reports)``.
+
+        An oversized attachment is deliberately NOT routed to the multimodal
+        fallback: the problem there is cost/context budget, not readability,
+        so sending the same content as a raw file would make it worse, not
+        better. It's reported back as a failed attachment instead, so the
+        estimate still proceeds without it.
         """
         raw_by_filename = {filename: raw for filename, _ct, raw in attachment_files}
         content_type_by_filename = {filename: ct for filename, ct, _raw in attachment_files}
         extracted = [
-            extract_attachment(filename, raw) for filename, _content_type, raw in attachment_files
+            enforce_length_limit(extract_attachment(filename, raw), max_words)
+            for filename, _content_type, raw in attachment_files
         ]
         attachments_block = format_attachments_block(extracted)
 
@@ -304,7 +323,13 @@ class EstimationService:
             if r.ok:
                 reports.append(AttachmentReport(filename=r.filename, method=r.method, ok=True))
                 continue
-            if r.filename.lower().endswith(".pdf"):
+            if r.method == "too_long":
+                unrecoverable_notes.append(
+                    f"<attachment filename='{r.filename}' status='failed'>"
+                    f"{r.note} This attachment is skipped for this estimate.</attachment>"
+                )
+                reports.append(AttachmentReport(filename=r.filename, method="too_long", ok=False, note=r.note))
+            elif r.filename.lower().endswith(".pdf"):
                 content_type = content_type_by_filename.get(r.filename) or "application/pdf"
                 b64 = base64.b64encode(raw_by_filename[r.filename]).decode("ascii")
                 multimodal_blocks.append(
@@ -366,11 +391,12 @@ class EstimationService:
             project_type=session.project_type,
             detail_level=session.detail_level,
             output_format=session.output_format,
-            project_metadata=session.project_metadata,
+            project_metadata=session.project_metadata.model_dump(),
+            metadata_is_empty=session.project_metadata.is_empty(),
             attachments_block=degraded_block,
-            version=self.prompt_version,
+            version=self.conversational_prompt_version,
         )
-        messages = session.history.to_messages_list(system_prompt)
+        messages = [{"role": "system", "content": system_prompt}, *session.history.to_messages()]
         messages.append({"role": "user", "content": user_message})
         draft, meta = self.llm_wrapper.complete_structured_with_messages(
             messages=messages, response_model=EstimationDraft

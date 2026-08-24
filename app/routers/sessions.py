@@ -16,9 +16,9 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.dependencies import get_estimation_service, get_session_store
 from app.guardrails.input import InputGuardrailViolation
-from app.schemas.estimation import DetailLevel, OutputFormat, ProjectType, SessionEstimateResponse
+from app.schemas.estimation import DetailLevel, OutputFormat, ProjectType
 from app.services.estimation import EstimationService
-from app.sessions import SessionStore
+from app.sessions import SessionEstimateResponse, SessionStore
 
 log = structlog.get_logger()
 

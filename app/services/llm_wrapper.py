@@ -31,8 +31,6 @@ from litellm import Router
 from pydantic import BaseModel
 
 from app.constants import MODELS_PRICING
-from app.prompts.loader import render_metadata_extraction_prompt
-from app.schemas.estimation import ProjectMetadata
 from app.services.cache import EstimationCache
 
 log = structlog.get_logger()
@@ -95,6 +93,8 @@ class LLMWrapper:
         timeout: int,
         num_retries: int,
         cache: EstimationCache,
+        metadata_extractor_model: str = "gpt-4o-mini",
+        metadata_extractor_fallback_model: str = "claude-haiku-4-5-20251001",
     ):
         self.openai_api_key = openai_api_key
         self.anthropic_api_key = anthropic_api_key
@@ -104,6 +104,12 @@ class LLMWrapper:
         self.num_retries = num_retries
         self.cache = cache
 
+        # Two logical model groups, each with its own primary->fallback pair:
+        # "estimator" for the main estimation call, "metadata_extractor" for
+        # the small/cheap side call that refreshes ProjectMetadata. Keeping
+        # them as separate Router groups (rather than one call bypassing the
+        # Router with litellm.completion directly) means the metadata call
+        # keeps the same fallback guarantee as the main one.
         self.router = Router(
             model_list=[
                 {
@@ -122,8 +128,24 @@ class LLMWrapper:
                         "timeout": timeout,
                     },
                 },
+                {
+                    "model_name": "metadata_extractor",
+                    "litellm_params": {
+                        "model": metadata_extractor_model,
+                        "api_key": openai_api_key,
+                        "timeout": timeout,
+                    },
+                },
+                {
+                    "model_name": "metadata_extractor",
+                    "litellm_params": {
+                        "model": metadata_extractor_fallback_model,
+                        "api_key": anthropic_api_key,
+                        "timeout": timeout,
+                    },
+                },
             ],
-            fallbacks=[{"estimator": ["estimator"]}],
+            fallbacks=[{"estimator": ["estimator"]}, {"metadata_extractor": ["metadata_extractor"]}],
             num_retries=num_retries,
         )
 
@@ -214,6 +236,7 @@ class LLMWrapper:
         *,
         messages: list[dict[str, Any]],
         response_model: type[T],
+        model_name: str = "estimator",
         max_tokens: int = 4000,
         max_retries: int = 6,
     ) -> tuple[T, dict[str, Any]]:
@@ -222,21 +245,24 @@ class LLMWrapper:
 
         Takes the full array (rather than a single system+user pair) so a
         multi-turn caller can pass prior conversation turns ahead of the
-        current one. ``meta`` carries ``model``, ``provider``, ``cost_usd`` and
-        ``latency_ms`` so the caller can report what the call actually cost.
-        Instructor re-prompts the LLM up to ``max_retries`` times when a
-        Pydantic validator raises, feeding the ``ValueError`` message back to
-        the model.
+        current one. ``model_name`` selects which Router group answers the
+        call — ``"estimator"`` (the default) or ``"metadata_extractor"`` —
+        both go through the Router, so both keep the primary->fallback
+        guarantee regardless of which one is used. ``meta`` carries ``model``,
+        ``provider``, ``cost_usd`` and ``latency_ms`` so the caller can report
+        what the call actually cost. Instructor re-prompts the LLM up to
+        ``max_retries`` times when a Pydantic validator raises, feeding the
+        ``ValueError`` message back to the model.
         """
         log.info(
             "llm_structured_call_started",
-            model=self.primary_model,
+            model_group=model_name,
             response_model=response_model.__name__,
         )
         t0 = time.perf_counter()
         try:
             result, completion = self._instructor.chat.completions.create_with_completion(
-                model="estimator",
+                model=model_name,
                 messages=messages,
                 response_model=response_model,
                 max_tokens=max_tokens,
@@ -377,43 +403,6 @@ class LLMWrapper:
             meta_holder.update(
                 cache_hit=False, cost_usd=cost_usd, model=model, provider=provider
             )
-
-    def extract_metadata(
-        self,
-        *,
-        current: ProjectMetadata,
-        user_turn: str,
-        assistant_summary: str,
-        max_retries: int = 2,
-    ) -> ProjectMetadata:
-        """Update ``ProjectMetadata`` after a session turn via a small,
-        dedicated LLM call (the "LLM extractor" approach, chosen over a regex
-        heuristic because this conversation is free-form and bilingual).
-
-        Fails open: if the call or validation fails after retries, the
-        *previous* metadata is returned unchanged rather than raising, losing
-        a metadata update for one turn is much cheaper than 502ing an
-        otherwise-successful estimation over a side call.
-        """
-        prompt = render_metadata_extraction_prompt(
-            current_metadata=current, user_turn=user_turn, assistant_summary=assistant_summary
-        )
-        try:
-            result, _completion = self._instructor.chat.completions.create_with_completion(
-                model="estimator",
-                messages=[{"role": "user", "content": prompt}],
-                response_model=ProjectMetadata,
-                max_tokens=500,
-                max_retries=max_retries,
-            )
-            return result
-        except Exception as exc:  # noqa: BLE001 - fail open, see docstring
-            log.warning(
-                "metadata_extraction_failed",
-                error_type=type(exc).__name__,
-                error=str(exc)[:200],
-            )
-            return current
 
     # ------------------------------------------------------------------
     # Internal helpers
