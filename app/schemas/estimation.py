@@ -67,7 +67,7 @@ class Phase(BaseModel):
 class EstimationDraft(BaseModel):
     """What the LLM is actually asked to fill in: everything except the totals.
 
-    Why no total fields here — measured, not assumed. Asking ``gpt-4o-mini`` for
+    Why no total fields here, measured, not assumed. Asking ``gpt-4o-mini`` for
     a grand total alongside the phases fails reliably: in a live run against
     this exact prompt it burned all 7 Instructor attempts (~24k tokens) without
     ever making ``sum(phases) == total_cost_eur``, drifting further on each
@@ -170,3 +170,46 @@ class EstimationResponse(BaseModel):
     prompt_version: str
     cached: bool = False
     meta: CallMeta = Field(default_factory=CallMeta)
+
+
+class ProjectMetadata(BaseModel):
+    """Distilled, durable facts about the project under discussion in a
+    session, separate from the raw turn history, which is subject to the
+    sliding window and can be truncated.
+
+    Populated by a dedicated LLM extraction call after each turn
+    (``LLMWrapper.extract_metadata``) rather than a regex heuristic: the
+    conversation here is free-form and bilingual (ES/EN), the case the course
+    material itself flags as tipping the balance away from heuristics.
+    """
+
+    project_name: str | None = None
+    assumed_team_size: int | None = Field(default=None, ge=1, le=500)
+    mentioned_technologies: list[str] = Field(default_factory=list)
+    agreed_scope: str | None = None
+    explicit_constraints: list[str] = Field(default_factory=list)
+    rejected_options: list[str] = Field(default_factory=list)
+
+
+class AttachmentReport(BaseModel):
+    """What happened when processing one uploaded attachment."""
+
+    filename: str
+    method: str  # "pypdf" | "pymupdf" | "docx" | "llm_fallback" | "failed"
+    ok: bool
+    note: str | None = None
+
+
+class SessionEstimateResponse(BaseModel):
+    """Response for a multi-turn, session-scoped estimation. Same shape as
+    ``EstimationResponse`` plus the session id, the ``project_metadata`` as it
+    stands after this turn, and a per-attachment processing report, so the
+    client can render memory and attachment handling without a second call."""
+
+    result: EstimationResult
+    prompt_version: str
+    cached: bool = False
+    meta: CallMeta = Field(default_factory=CallMeta)
+    session_id: str
+    project_metadata: ProjectMetadata
+    attachments: list[AttachmentReport] = Field(default_factory=list)

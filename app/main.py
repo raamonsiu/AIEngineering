@@ -1,12 +1,14 @@
-import structlog
+import logging
 from contextlib import asynccontextmanager
+
+import structlog
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from scalar_fastapi import AgentScalarConfig, get_scalar_api_reference
 from app.config import get_settings
-from app.routers import estimations, estimations_text
+from app.routers import estimations, estimations_text, sessions
 
 
 def configure_logging() -> None:
@@ -31,7 +33,8 @@ def configure_logging() -> None:
             structlog.processors.format_exc_info,
             renderer,
         ],
-        wrapper_class=structlog.stdlib.BoundLogger,
+        # Filters by LOG_LEVEL before a log line is even built.
+        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, settings.LOG_LEVEL)),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
@@ -75,6 +78,7 @@ app.add_middleware(
 
 app.include_router(estimations.router)
 app.include_router(estimations_text.router)
+app.include_router(sessions.router)
 
 @app.get("/docs", include_in_schema=False)
 async def scalar_docs():

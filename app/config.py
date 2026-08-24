@@ -39,6 +39,8 @@ class Settings(BaseSettings):
 
     ESTIMATOR_API_BASE_URL: str = "http://localhost:8000"
 
+    MAX_TURNS: int = 6
+
     @model_validator(mode="after")
     def validate_at_least_one_api_key(self) -> "Settings":
         """LiteLLM's Router may dispatch to either provider on fallback, so at

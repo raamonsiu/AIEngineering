@@ -57,6 +57,27 @@ one-word description, or pure gibberish. If you can name the phases you would
 run, you are in scope — estimate it.
 </scope_calibration>
 
+<project_metadata>
+{% set has_metadata = project_metadata and (project_metadata.project_name or project_metadata.assumed_team_size or project_metadata.mentioned_technologies or project_metadata.agreed_scope or project_metadata.explicit_constraints or project_metadata.rejected_options) %}
+{% if has_metadata %}
+This is a multi-turn conversation about an ongoing project. These facts were
+distilled from earlier turns — some of which may no longer be visible above
+because they scrolled out of the history window. Treat them as ground truth:
+stay consistent with them and only change the estimate to reflect genuinely
+new information from this turn.
+{% if project_metadata.project_name %}- Project name: {{ project_metadata.project_name }}
+{% endif %}{% if project_metadata.assumed_team_size %}- Assumed team size: {{ project_metadata.assumed_team_size }}
+{% endif %}{% if project_metadata.mentioned_technologies %}- Mentioned technologies: {{ project_metadata.mentioned_technologies | join(", ") }}
+{% endif %}{% if project_metadata.agreed_scope %}- Agreed scope: {{ project_metadata.agreed_scope }}
+{% endif %}{% if project_metadata.explicit_constraints %}- Explicit constraints: {{ project_metadata.explicit_constraints | join("; ") }}
+{% endif %}{% if project_metadata.rejected_options %}- Rejected options (do not reintroduce): {{ project_metadata.rejected_options | join("; ") }}
+{% endif %}
+{% else %}
+No facts recorded yet — this is either a single, standalone request or the
+first turn of a new conversation.
+{% endif %}
+</project_metadata>
+
 <output_schema>
 You must return a structured object with these exact fields:
 - summary (string, 10-1200 chars): a paragraph summarising the estimation. If the project is out of scope or the description is too vague to estimate with at least 30% confidence, the summary MUST start with "Out of scope:" and explain why.

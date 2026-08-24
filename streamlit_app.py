@@ -1,13 +1,18 @@
 """Streamlit UI for the estimator.
 
 Streamlit acts as a pure HTTP client of the FastAPI service. It holds no LLM API
-key and never calls a provider directly — the API owns the guardrails, the
-caches, the prompt versioning and the provider fallback. Two tabs, two flows:
+key and never calls a provider directly, the API owns the guardrails, the
+caches, the prompt versioning and the provider fallback. Three tabs, three flows:
 
 - **Structured estimate**: a typed ``EstimationRequest`` to
   ``POST /api/v1/estimate``, rendering the validated ``EstimationResult``.
 - **Chat**: a free-text transcription streamed from
   ``POST /api/v1/estimate/stream`` and rendered token by token.
+- **Project session**: a multi-turn conversation against
+  ``POST /api/v1/sessions`` + ``POST /api/v1/sessions/{id}/estimate``, with
+  optional PDF/Word attachments. Shows ``project_metadata`` explicitly so the
+  separation between conversation history (windowed) and memory (durable) is
+  visible, not just a backend implementation detail.
 
 The prompt version is deliberately NOT surfaced: which template the service
 runs is a deploy-time decision (``PROMPT_VERSION`` in settings), not something
@@ -32,9 +37,11 @@ settings = get_settings()
 API_BASE = settings.ESTIMATOR_API_BASE_URL.rstrip("/")
 ESTIMATE_ENDPOINT = f"{API_BASE}/api/v1/estimate"
 STREAM_ENDPOINT = f"{API_BASE}/api/v1/estimate/stream"
+SESSIONS_ENDPOINT = f"{API_BASE}/api/v1/sessions"
 
 MIN_DESCRIPTION_LENGTH = 20
 MIN_TRANSCRIPTION_LENGTH = 50
+MIN_SESSION_MESSAGE_LENGTH = 10
 
 st.set_page_config(page_title="Software Estimator", page_icon="📊")
 st.title("Software Estimator")
@@ -46,6 +53,38 @@ st.caption(
 
 def humanise(value: str) -> str:
     return value.replace("_", " ").capitalize()
+
+
+def render_estimation_result(result: dict) -> None:
+    """Shared rendering for an ``EstimationResult``: used by both the
+    structured-estimate form and the project-session tab so a turn's answer
+    always shows the same metrics + phases table, not just its summary text."""
+    # The service normalises anything it could not size confidently into a
+    # summary starting with "Out of scope:", show that as a warning rather
+    # than dressing a non-estimate up as a real one.
+    if result["summary"].startswith("Out of scope:"):
+        st.warning(result["summary"])
+        return
+
+    st.success(result["summary"])
+
+    left, middle, right = st.columns(3)
+    left.metric("Total duration", f"{result['total_duration_weeks']} weeks")
+    middle.metric("Total cost", f"€{result['total_cost_eur']:,}")
+    right.metric("Confidence", f"{result['confidence_pct']}%")
+
+    st.subheader("Phases")
+    st.table(
+        [
+            {
+                "Phase": phase["name"],
+                "Duration (weeks)": phase["duration_weeks"],
+                "Cost (EUR)": f"€{phase['cost_eur']:,}",
+                "Detail": phase["summary"],
+            }
+            for phase in result["phases"]
+        ]
+    )
 
 
 def describe_rejection(payload: object, status_code: int) -> str:
@@ -70,7 +109,7 @@ def describe_rejection(payload: object, status_code: int) -> str:
             loc = err.get("loc", [])
             field = humanise(str(loc[-1])) if loc else "Input"
             parts.append(f"{field}: {err.get('msg', 'is invalid')}")
-        return "Please check the form — " + "; ".join(parts) + "."
+        return "Please check the form, " + "; ".join(parts) + "."
     return f"The service returned an error ({status_code})."
 
 
@@ -141,7 +180,48 @@ def stream_estimation(transcription: str, meta_holder: dict):
                 )
 
 
-form_tab, chat_tab = st.tabs(["Structured estimate", "Chat"])
+def create_session() -> str:
+    response = httpx.post(SESSIONS_ENDPOINT, timeout=httpx.Timeout(30.0, connect=10.0))
+    response.raise_for_status()
+    return response.json()["session_id"]
+
+
+def request_session_estimation(
+    session_id: str,
+    transcript: str,
+    project_type: ProjectType,
+    detail_level: DetailLevel,
+    output_format: OutputFormat,
+    files: list,
+) -> dict:
+    """POST one turn to the session endpoint as multipart/form-data. The
+    typed selectors are sent every turn for simplicity, but are genuinely
+    optional server-side, the session remembers the last value it saw."""
+    data = {
+        "transcript": transcript,
+        "project_type": project_type.value,
+        "detail_level": detail_level.value,
+        "output_format": output_format.value,
+    }
+    upload_files = [
+        ("attachments", (f.name, f.getvalue(), f.type or "application/octet-stream")) for f in files
+    ]
+    response = httpx.post(
+        f"{SESSIONS_ENDPOINT}/{session_id}/estimate",
+        data=data,
+        files=upload_files,
+        timeout=httpx.Timeout(180.0, connect=10.0),
+    )
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("detail", response.text)
+        except ValueError:
+            detail = response.text
+        raise RuntimeError(describe_rejection(detail, response.status_code))
+    return response.json()
+
+
+form_tab, chat_tab, session_tab = st.tabs(["Structured estimate", "Chat", "Project session"])
 
 with form_tab:
     with st.form("estimation_form"):
@@ -190,33 +270,7 @@ with form_tab:
                 st.error(f"Could not reach the estimator at `{ESTIMATE_ENDPOINT}`: {exc}")
             else:
                 elapsed = round(time.perf_counter() - started, 2)
-                result = body["result"]
-
-                # The service normalises anything it could not size confidently
-                # into a summary starting with "Out of scope:" — show that as a
-                # warning rather than dressing a non-estimate up as a real one.
-                if result["summary"].startswith("Out of scope:"):
-                    st.warning(result["summary"])
-                else:
-                    st.success(result["summary"])
-
-                    left, middle, right = st.columns(3)
-                    left.metric("Total duration", f"{result['total_duration_weeks']} weeks")
-                    middle.metric("Total cost", f"€{result['total_cost_eur']:,}")
-                    right.metric("Confidence", f"{result['confidence_pct']}%")
-
-                    st.subheader("Phases")
-                    st.table(
-                        [
-                            {
-                                "Phase": phase["name"],
-                                "Duration (weeks)": phase["duration_weeks"],
-                                "Cost (EUR)": f"€{phase['cost_eur']:,}",
-                                "Detail": phase["summary"],
-                            }
-                            for phase in result["phases"]
-                        ]
-                    )
+                render_estimation_result(body["result"])
 
                 st.session_state.last_call = {
                     "elapsed": elapsed,
@@ -284,6 +338,138 @@ with chat_tab:
             "provider": meta_holder.get("provider"),
         }
         st.rerun()
+
+with session_tab:
+    st.caption(
+        "Multi-turn estimation: refine the same project across several messages. "
+        "project_metadata (the durable facts, shown below) survives even after an "
+        "old turn falls out of the conversation window."
+    )
+
+    if "session_id" not in st.session_state:
+        try:
+            st.session_state.session_id = create_session()
+        except httpx.HTTPError as exc:
+            st.session_state.session_id = None
+            st.error(f"Could not reach the estimator at `{SESSIONS_ENDPOINT}`: {exc}")
+    st.session_state.setdefault("session_turns", [])
+    st.session_state.setdefault("session_metadata", None)
+    st.session_state.setdefault("session_attachments", [])
+    st.session_state.setdefault(
+        "session_selectors",
+        {
+            "project_type": ProjectType.WEB_SAAS,
+            "detail_level": DetailLevel.MEDIUM,
+            "output_format": OutputFormat.PHASES_TABLE,
+        },
+    )
+
+    session_header_left, session_header_right = st.columns([3, 1])
+    with session_header_left:
+        if st.session_state.session_id:
+            st.caption(f"Session: `{st.session_state.session_id}`")
+    with session_header_right:
+        if st.button("Nueva conversación"):
+            try:
+                st.session_state.session_id = create_session()
+                st.session_state.session_turns = []
+                st.session_state.session_metadata = None
+                st.session_state.session_attachments = []
+            except httpx.HTTPError as exc:
+                st.error(f"Could not reach the estimator at `{SESSIONS_ENDPOINT}`: {exc}")
+            st.rerun()
+
+    for turn in st.session_state.session_turns:
+        with st.chat_message("user"):
+            st.markdown(turn["transcript"])
+        with st.chat_message("assistant"):
+            render_estimation_result(turn["result"])
+
+    selectors = st.session_state.session_selectors
+    with st.form("session_estimation_form", clear_on_submit=True):
+        transcript = st.text_area(
+            "Message",
+            height=150,
+            placeholder="Describe the project, or refine what you already discussed…",
+            help=f"At least {MIN_SESSION_MESSAGE_LENGTH} characters. The selectors below are "
+            "optional, set once, remembered for later turns unless you change them.",
+        )
+        sel_left, sel_mid, sel_right = st.columns(3)
+        with sel_left:
+            project_type = st.selectbox(
+                "Project type",
+                options=list(ProjectType),
+                index=list(ProjectType).index(selectors["project_type"]),
+                format_func=lambda v: humanise(v.value),
+            )
+        with sel_mid:
+            detail_level = st.selectbox(
+                "Detail level",
+                options=list(DetailLevel),
+                index=list(DetailLevel).index(selectors["detail_level"]),
+                format_func=lambda v: humanise(v.value),
+            )
+        with sel_right:
+            output_format = st.selectbox(
+                "Output format",
+                options=list(OutputFormat),
+                index=list(OutputFormat).index(selectors["output_format"]),
+                format_func=lambda v: humanise(v.value),
+            )
+        uploaded_files = st.file_uploader(
+            "Attachments (PDF or Word)", type=["pdf", "docx"], accept_multiple_files=True
+        )
+        session_submitted = st.form_submit_button("Send", type="primary")
+
+    if session_submitted:
+        if not st.session_state.session_id:
+            st.error("No active session. Reload the page or click 'Nueva conversación'.")
+        elif len(transcript.strip()) < MIN_SESSION_MESSAGE_LENGTH:
+            st.error(f"Message is too short (min {MIN_SESSION_MESSAGE_LENGTH} characters).")
+        else:
+            st.session_state.session_selectors = {
+                "project_type": project_type,
+                "detail_level": detail_level,
+                "output_format": output_format,
+            }
+            started = time.perf_counter()
+            try:
+                with st.spinner("Estimating…"):
+                    body = request_session_estimation(
+                        st.session_state.session_id,
+                        transcript.strip(),
+                        project_type,
+                        detail_level,
+                        output_format,
+                        uploaded_files or [],
+                    )
+            except RuntimeError as exc:
+                st.error(str(exc))
+            except httpx.HTTPError as exc:
+                st.error(f"Could not reach the estimator at `{SESSIONS_ENDPOINT}`: {exc}")
+            else:
+                elapsed = round(time.perf_counter() - started, 2)
+                st.session_state.session_turns.append(
+                    {"transcript": transcript.strip(), "result": body["result"]}
+                )
+                st.session_state.session_metadata = body["project_metadata"]
+                st.session_state.session_attachments = body.get("attachments", [])
+                st.session_state.last_call = {
+                    "elapsed": elapsed,
+                    "cached": body.get("cached", False),
+                    **body.get("meta", {}),
+                }
+                st.rerun()
+
+    if st.session_state.session_attachments:
+        st.subheader("Attachments (last turn)")
+        st.table(st.session_state.session_attachments)
+
+    with st.expander("project_metadata, durable facts, separate from history", expanded=True):
+        if st.session_state.session_metadata:
+            st.json(st.session_state.session_metadata)
+        else:
+            st.caption("No facts recorded yet, this is a new session.")
 
 with st.sidebar:
     st.header("Service")

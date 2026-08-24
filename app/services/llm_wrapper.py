@@ -8,14 +8,14 @@ Design notes
   - ``complete_structured()``: returns a validated Pydantic model via Instructor,
     re-prompting on validator errors up to ``max_retries`` times. Caching for
     this path lives in ``app/services/estimation.py`` (the service owns the
-    pipeline order: guardrails → caches → LLM → output guardrail → cache write).
+    pipeline order: guardrails -> caches -> LLM -> output guardrail -> cache write).
 - The Router is configured with two deployments under the same ``model_name``
   ("estimator") so LiteLLM can switch from primary to fallback transparently:
     1. Try the primary model.
     2. On a transient error, retry it up to ``num_retries`` times.
     3. If it still fails, fall over to the fallback deployment.
 - Instructor wraps the *Router's* ``completion`` (not bare ``litellm.completion``)
-  so structured calls get the same primary→fallback escalation as free-text
+  so structured calls get the same primary->fallback escalation as free-text
   ones. Wrapping ``litellm.completion`` directly would silently drop the
   fallback guarantee for the only endpoint this service exposes.
 """
@@ -31,6 +31,8 @@ from litellm import Router
 from pydantic import BaseModel
 
 from app.constants import MODELS_PRICING
+from app.prompts.loader import render_metadata_extraction_prompt
+from app.schemas.estimation import ProjectMetadata
 from app.services.cache import EstimationCache
 
 log = structlog.get_logger()
@@ -194,18 +196,38 @@ class LLMWrapper:
         max_tokens: int = 4000,
         max_retries: int = 6,
     ) -> tuple[T, dict[str, Any]]:
-        """Run the LLM with Instructor and return ``(model_instance, meta)``.
-
-        ``meta`` carries ``model``, ``provider``, ``cost_usd`` and ``latency_ms``
-        so the caller can report what the call actually cost. Instructor
-        re-prompts the LLM up to ``max_retries`` times when a Pydantic validator
-        raises, feeding the ``ValueError`` message back to the model.
-        """
+        """Single system+user turn. Thin wrapper around
+        ``complete_structured_with_messages`` for the single-shot endpoint."""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ]
+        return self.complete_structured_with_messages(
+            messages=messages,
+            response_model=response_model,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+        )
 
+    def complete_structured_with_messages(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        response_model: type[T],
+        max_tokens: int = 4000,
+        max_retries: int = 6,
+    ) -> tuple[T, dict[str, Any]]:
+        """Run the LLM with Instructor over an arbitrary ``messages`` array and
+        return ``(model_instance, meta)``.
+
+        Takes the full array (rather than a single system+user pair) so a
+        multi-turn caller can pass prior conversation turns ahead of the
+        current one. ``meta`` carries ``model``, ``provider``, ``cost_usd`` and
+        ``latency_ms`` so the caller can report what the call actually cost.
+        Instructor re-prompts the LLM up to ``max_retries`` times when a
+        Pydantic validator raises, feeding the ``ValueError`` message back to
+        the model.
+        """
         log.info(
             "llm_structured_call_started",
             model=self.primary_model,
@@ -355,6 +377,43 @@ class LLMWrapper:
             meta_holder.update(
                 cache_hit=False, cost_usd=cost_usd, model=model, provider=provider
             )
+
+    def extract_metadata(
+        self,
+        *,
+        current: ProjectMetadata,
+        user_turn: str,
+        assistant_summary: str,
+        max_retries: int = 2,
+    ) -> ProjectMetadata:
+        """Update ``ProjectMetadata`` after a session turn via a small,
+        dedicated LLM call (the "LLM extractor" approach, chosen over a regex
+        heuristic because this conversation is free-form and bilingual).
+
+        Fails open: if the call or validation fails after retries, the
+        *previous* metadata is returned unchanged rather than raising, losing
+        a metadata update for one turn is much cheaper than 502ing an
+        otherwise-successful estimation over a side call.
+        """
+        prompt = render_metadata_extraction_prompt(
+            current_metadata=current, user_turn=user_turn, assistant_summary=assistant_summary
+        )
+        try:
+            result, _completion = self._instructor.chat.completions.create_with_completion(
+                model="estimator",
+                messages=[{"role": "user", "content": prompt}],
+                response_model=ProjectMetadata,
+                max_tokens=500,
+                max_retries=max_retries,
+            )
+            return result
+        except Exception as exc:  # noqa: BLE001 - fail open, see docstring
+            log.warning(
+                "metadata_extraction_failed",
+                error_type=type(exc).__name__,
+                error=str(exc)[:200],
+            )
+            return current
 
     # ------------------------------------------------------------------
     # Internal helpers
