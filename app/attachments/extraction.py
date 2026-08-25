@@ -163,8 +163,8 @@ def check_length(text: str, max_words: int) -> tuple[bool, str | None]:
         return True, None
     ratio = word_count / max_words
     return False, (
-        f"El documento tiene unas {word_count:,} palabras; el máximo admitido "
-        f"es {max_words:,} (~{ratio:.1f}x lo permitido)."
+        f"This document has about {word_count:,} words; the maximum allowed "
+        f"is {max_words:,} (~{ratio:.1f}x over the limit)."
     )
 
 

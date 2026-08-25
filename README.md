@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue)
 ![FastAPI](https://img.shields.io/badge/framework-FastAPI-009688)
 ![CAG](https://img.shields.io/badge/architecture-CAG-purple)
-![Version](https://img.shields.io/badge/version-0.1.0-lightgrey)
+![Version](https://img.shields.io/badge/version-0.5.0-lightgrey)
 ![uv](https://img.shields.io/badge/package%20manager-uv-de5fe9)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED)
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B)
@@ -234,13 +234,13 @@ Multi-turn estimation: refine the same project across several messages instead o
 
 **A dedicated, cheaper model for extraction, with fallback of its own.** The metadata call runs against its own Router group (`"metadata_extractor"` in `LLMWrapper`), configured via `METADATA_EXTRACTOR_MODEL` / `METADATA_EXTRACTOR_FALLBACK_MODEL`, independent of `PRIMARY_MODEL` / `FALLBACK_MODEL`. This is a deliberate choice not to reuse the (potentially larger/pricier) main model for a small side call, but unlike routing that call around the Router entirely (which would drop the fallback guarantee, the same trade-off flagged for the main call in `llm_wrapper.py`), it still goes through `LLMWrapper.complete_structured_with_messages(..., model_name="metadata_extractor")`, so a flaky provider on the cheap model still fails over instead of just failing.
 
-**Attachments, Camino B (local extraction), self-validating, with an LLM fallback, and a length cap.** PDFs and Word docs are parsed locally (`app/attachments/extraction.py`) rather than uploaded to a provider's Files API, to keep the estimator independent of whichever model the Router happens to be using for a given call. The pipeline for each file:
+**Attachments: local extraction, self-validating, with an LLM fallback and a length cap.** PDFs and Word docs are parsed locally (`app/attachments/extraction.py`) rather than uploaded to a provider's Files API, to keep the estimator independent of whichever model the Router happens to be using for a given call. The pipeline for each file:
 
 1. Try `pypdf` (PDF) or `python-docx` (Word).
 2. Validate the result against hard rules: non-empty, a minimum characters-per-page floor (catches a scanned/image-only PDF with no text layer), a minimum printable-character ratio (catches a garbled/mis-decoded extraction).
 3. If a PDF fails validation, retry with `PyMuPDF`, which occasionally recovers text `pypdf` misses.
 4. If it still fails, fall back to the LLM's own multimodal document support for that one file, the raw bytes go in as an inline `file` content block alongside the turn's text. If that call itself fails (unsupported model, provider quirk), the request degrades to a text-only retry noting the file couldn't be processed, rather than 502ing an otherwise-answerable turn.
-5. If extraction *succeeds* but the result is longer than `MAX_ATTACHMENT_WORDS`, it's rejected anyway, not truncated. A silently truncated attachment produces a plausible-looking but partial answer with no indication anything was cut; reporting it as failed (`method: "too_long"`) tells the user outright. The message is deliberately non-technical, word counts and a multiple-of-the-limit ("~3.2x lo permitido"), never "tokens", since that's a number a non-technical user can actually reason about. An oversized file is never routed to step 4's multimodal fallback either: the problem there is cost/context budget, and re-sending the same content as a raw file would make that worse, not better.
+5. If extraction *succeeds* but the result is longer than `MAX_ATTACHMENT_WORDS`, it's rejected anyway, not truncated. A silently truncated attachment produces a plausible-looking but partial answer with no indication anything was cut; reporting it as failed (`method: "too_long"`) tells the user outright. The message is deliberately non-technical, word counts and a multiple-of-the-limit ("~3.2x over the limit"), never "tokens", since that's a number a non-technical user can actually reason about. An oversized file is never routed to step 4's multimodal fallback either: the problem there is cost/context budget, and re-sending the same content as a raw file would make that worse, not better.
 
 This keeps the common case (born-digital PDFs, Word docs) fully local while still reaching an answer for a scanned document, without ever letting attachment handling take down the whole request. Each attachment's outcome (`pypdf` / `pymupdf` / `docx` / `llm_fallback` / `too_long` / `failed`) is reported back in the response so the client can show what happened; Streamlit's Project session tab surfaces a `too_long` one as an explicit warning.
 

@@ -369,7 +369,7 @@ with session_tab:
         if st.session_state.session_id:
             st.caption(f"Session: `{st.session_state.session_id}`")
     with session_header_right:
-        if st.button("Nueva conversación"):
+        if st.button("New conversation"):
             try:
                 st.session_state.session_id = create_session()
                 st.session_state.session_turns = []

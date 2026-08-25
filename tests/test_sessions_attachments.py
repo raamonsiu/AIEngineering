@@ -92,7 +92,7 @@ def test_oversized_attachment_is_reported_without_blocking_the_estimate(
         report = response.json()["attachments"][0]
         assert report["ok"] is False
         assert report["method"] == "too_long"
-        assert "palabras" in report["note"]
+        assert "words" in report["note"]
         assert "5" in report["note"]
     finally:
         app.dependency_overrides.pop(get_estimation_service, None)
