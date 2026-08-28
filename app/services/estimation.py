@@ -46,7 +46,14 @@ from app.schemas.estimation import (
 )
 from app.services.cache import EstimationCache
 from app.services.llm_wrapper import LLMWrapper
-from app.sessions import AttachmentReport, Session, SessionEstimateResponse, update_metadata
+from app.sessions import (
+    AttachmentReport,
+    Session,
+    SessionEstimateResponse,
+    apply_compression,
+    resolve_tier,
+    update_metadata,
+)
 
 log = structlog.get_logger()
 
@@ -79,8 +86,9 @@ class EstimationService:
         semantic_cache: EstimationSemanticCache | None = None,
         openai_client=None,
         prompt_version: str = "v1",
-        conversational_prompt_version: str = "v2",
+        conversational_prompt_version: str = "v3",
         max_attachment_words: int = 8000,
+        anchor_detection_mode: str = "heuristic",
     ) -> None:
         self.llm_wrapper = llm_wrapper
         self.exact_cache = exact_cache
@@ -89,6 +97,7 @@ class EstimationService:
         self.prompt_version = prompt_version
         self.conversational_prompt_version = conversational_prompt_version
         self.max_attachment_words = max_attachment_words
+        self.anchor_detection_mode = anchor_detection_mode
 
     def estimate(self, request: EstimationRequest) -> EstimationResponse:
         # 1. Input guardrails, raises InputGuardrailViolation on rejection.
@@ -187,20 +196,31 @@ class EstimationService:
         Pipeline:
             1. Input guardrails on the raw transcript.
             2. Remember any typed selectors this turn supplied.
-            3. Extract attachments locally (enforcing a length cap), falling
+            3. Resolve the audience tier from the transcript + accumulated
+               metadata (see ``app.sessions.tier_resolver``).
+            4. Extract attachments locally (enforcing a length cap), falling
                back to the LLM's native file support for anything local
                extraction couldn't validate.
-            4. Render the system prompt (with project_metadata) + user turn,
-               using the dedicated conversational prompt version.
-            5. LLM call over session.history + this turn's messages, degrading
+            5. Render the system prompt (with project_metadata + tier) + user
+               turn, using the dedicated conversational prompt version.
+            6. LLM call over session.history + this turn's messages, degrading
                to a text-only retry if the multimodal fallback itself fails.
-            6. Output guardrail.
-            7. Append the turn to history (the full result JSON, not a
-               summary) and refresh project_metadata via the extractor +
-               deterministic merge (see ``app.sessions.update_metadata``).
+            7. Output guardrail.
+            8. Append the turn to history (the full result JSON, not a
+               summary) and run the compression policy: trim the sliding
+               window, rescuing anchors and folding the rest into the running
+               summary (see ``app.sessions.compression``).
+            9. Refresh project_metadata via the extractor + deterministic
+               merge (see ``app.sessions.update_metadata``).
         """
         check_input(transcript, openai_client=self.openai_client)
         self._apply_session_selectors(session, project_type, detail_level, output_format)
+
+        resolved_tier, tier_rule = resolve_tier(
+            transcript=transcript, metadata=session.project_metadata
+        )
+        session.last_resolved_tier = resolved_tier.value
+        session.last_tier_rule = tier_rule
 
         attachments_block, multimodal_blocks, attachment_reports = self._process_attachments(
             attachment_files, max_words=self.max_attachment_words
@@ -213,6 +233,7 @@ class EstimationService:
             output_format=session.output_format,
             project_metadata=session.project_metadata.model_dump(),
             metadata_is_empty=session.project_metadata.is_empty(),
+            tier=resolved_tier.value,
             attachments_block=attachments_block,
             version=self.conversational_prompt_version,
         )
@@ -246,6 +267,11 @@ class EstimationService:
         # would just be a lossier copy of data we already have.
         assistant_content = result.model_dump_json()
         session.history.append(user=user_message, assistant=assistant_content)
+        apply_compression(
+            session.history,
+            llm_wrapper=self.llm_wrapper,
+            anchor_detection_mode=self.anchor_detection_mode,
+        )
         session.project_metadata = update_metadata(
             previous=session.project_metadata,
             transcript=transcript,
@@ -259,6 +285,8 @@ class EstimationService:
             turns=len(session.history),
             confidence_pct=result.confidence_pct,
             attachments=len(attachment_files),
+            resolved_tier=resolved_tier.value,
+            tier_rule=tier_rule,
             **meta,
         )
 
@@ -270,6 +298,8 @@ class EstimationService:
             session_id=session.session_id,
             project_metadata=session.project_metadata,
             attachments=attachment_reports,
+            resolved_tier=resolved_tier.value,
+            tier_rule=tier_rule,
         )
 
     @staticmethod

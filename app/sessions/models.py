@@ -14,6 +14,14 @@ Design notes
   non-null value) and list-union for the list fields. This is a Python
   invariant, not a prompt instruction: the extractor is asked to return only
   what's new/changed, and this method is what actually preserves the rest.
+- ``ConversationHistory`` no longer trims itself on ``append`` (Session 5):
+  once anchors exist, deciding whether an evicted turn is disposable or
+  must be rescued verbatim requires inspecting it first, which ``append``
+  has no business doing. That decision, plus folding disposable turns into
+  ``summary``, is ``app.sessions.compression.CompressionPolicy``'s job,
+  called explicitly by the service after every ``append``. Keeping the data
+  structure dumb means there is exactly one place where the LLM is asked to
+  decide what to forget.
 - Storage is a plain process-local dict (see ``SessionStore``), no
   database, no Redis. A session is short-lived working memory for one active
   conversation, not a system of record, and this phase of the project is
@@ -53,36 +61,68 @@ class Message(BaseModel):
 
 
 class ConversationHistory(BaseModel):
-    """A sliding window of user/assistant pairs.
+    """A sliding window of user/assistant pairs, augmented with a cumulative
+    summary and anchored turns (Session 5's hybrid compression strategy).
 
-    ``max_turns`` counts pairs (user+assistant). When the window is
-    exceeded, the oldest pairs are dropped from the front. The invariant is
-    enforced after every ``append`` so callers never see an oversized
-    history.
+    Three storage slots:
+
+    - ``messages``: the recent sliding window (last ``max_turns`` pairs).
+      ``max_turns`` counts pairs; the cap is enforced by
+      ``app.sessions.compression.CompressionPolicy``, not by this class (see
+      the module docstring).
+    - ``anchors``: turns the ``AnchorDetector`` flagged as durable
+      commitments (signed contract, frozen scope, locked budget, legal/
+      compliance mention). They live outside the sliding window and are
+      never evicted by it.
+    - ``summary``: a free-text cumulative summary of older non-anchor turns
+      the ``CompressionPolicy`` has already folded away.
     """
 
     max_turns: int = Field(default=DEFAULT_MAX_TURNS, ge=1)
     messages: list[Message] = Field(default_factory=list)
+    anchors: list[Message] = Field(default_factory=list)
+    summary: str | None = Field(default=None)
 
     def append(self, *, user: str, assistant: str) -> None:
-        """Add one turn (user message + assistant message) and trim the window."""
+        """Add one turn (user message + assistant message).
+
+        Does NOT trim: whether an overflowing turn is disposable or must be
+        rescued as an anchor is ``CompressionPolicy.apply``'s call, and it
+        needs to see the turn before it decides. The caller runs that policy
+        right after this append (see ``EstimationService.estimate_in_session``).
+        """
         self.messages.append(Message(role="user", content=user))
         self.messages.append(Message(role="assistant", content=assistant))
-        self._trim()
 
     def to_messages(self) -> list[dict[str, str]]:
         """Return the ``messages`` array ready to splice into the LLM call,
-        excluding the system prompt (the caller prepends that fresh each turn)."""
-        return [{"role": m.role, "content": m.content} for m in self.messages]
+        excluding the system prompt (the caller prepends that fresh each
+        turn).
 
-    def _trim(self) -> None:
-        max_messages = self.max_turns * 2
-        overflow = len(self.messages) - max_messages
-        if overflow > 0:
-            # Drop in pairs so role alternation stays intact.
-            if overflow % 2 != 0:
-                overflow += 1
-            del self.messages[:overflow]
+        Order is intentional: the summary anchors the model in the early
+        conversation, the anchors carry irreducible commitments verbatim,
+        and the recent window provides turn-by-turn context.
+
+            [summary_envelope?] + anchors_in_order + recent_sliding_window
+        """
+        out: list[dict[str, str]] = []
+        if self.summary:
+            # Wrapped as a synthetic user message, and visually marked, so
+            # the model treats it as prior context rather than an
+            # instruction from the current turn.
+            out.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "[Earlier conversation summary — the recent turns "
+                        "below are the live thread]\n" + self.summary
+                    ),
+                }
+            )
+        for anchor in self.anchors:
+            out.append({"role": anchor.role, "content": anchor.content})
+        out.extend({"role": m.role, "content": m.content} for m in self.messages)
+        return out
 
     def __len__(self) -> int:
         return len(self.messages) // 2
@@ -163,6 +203,11 @@ class Session(BaseModel):
     set once (or defaulted on creation) and only overwritten when a turn
     explicitly supplies a new value, this keeps the "typed request, not
     free chat" contract from the single-shot endpoint.
+
+    ``last_resolved_tier``/``last_tier_rule`` cache the audience tier
+    (see ``app.sessions.tier_resolver``) resolved for the most recent turn,
+    purely so it can be echoed back on ``SessionEstimateResponse`` without
+    re-running the resolver.
     """
 
     session_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -172,6 +217,8 @@ class Session(BaseModel):
     detail_level: DetailLevel = DetailLevel.MEDIUM
     output_format: OutputFormat = OutputFormat.PHASES_TABLE
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_resolved_tier: str | None = None
+    last_tier_rule: str | None = None
 
 
 class AttachmentReport(BaseModel):
@@ -186,9 +233,9 @@ class AttachmentReport(BaseModel):
 class SessionEstimateResponse(BaseModel):
     """Response for a multi-turn, session-scoped estimation. Same shape as
     ``EstimationResponse`` plus the session id, the ``project_metadata`` as
-    it stands after this turn, and a per-attachment processing report, so
-    the client can render memory and attachment handling without a second
-    call."""
+    it stands after this turn, a per-attachment processing report, and the
+    audience tier resolved for this turn, so the client can render memory,
+    attachment handling and tier framing without a second call."""
 
     result: EstimationResult
     prompt_version: str
@@ -197,3 +244,5 @@ class SessionEstimateResponse(BaseModel):
     session_id: str
     project_metadata: ProjectMetadata
     attachments: list[AttachmentReport] = Field(default_factory=list)
+    resolved_tier: str
+    tier_rule: str

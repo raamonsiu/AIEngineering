@@ -34,6 +34,8 @@ def get_llm_wrapper() -> LLMWrapper:
         fallback_model=settings.FALLBACK_MODEL,
         metadata_extractor_model=settings.METADATA_EXTRACTOR_MODEL,
         metadata_extractor_fallback_model=settings.METADATA_EXTRACTOR_FALLBACK_MODEL,
+        compression_model=settings.COMPRESSION_MODEL,
+        compression_fallback_model=settings.COMPRESSION_FALLBACK_MODEL,
         timeout=settings.LLM_TIMEOUT,
         num_retries=settings.LLM_RETRIES,
         cache=get_cache(),
@@ -105,4 +107,5 @@ def get_estimation_service() -> EstimationService:
         prompt_version=settings.PROMPT_VERSION,
         conversational_prompt_version=settings.CONVERSATIONAL_PROMPT_VERSION,
         max_attachment_words=settings.MAX_ATTACHMENT_WORDS,
+        anchor_detection_mode=settings.ANCHOR_DETECTION_MODE,
     )

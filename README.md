@@ -28,7 +28,7 @@ Every LLM call goes through a [LiteLLM](https://docs.litellm.ai/)-backed wrapper
 - **Cost tracking**, every response reports the model, provider, latency and USD cost of that call. A cache hit reports `cost_usd: 0.0`, because nothing was spent.
 - **Structured logging**, every phase of a call (guardrails, cache check, prompt render, dispatch, retry, fallback, success/failure) is logged via `structlog`, so a request can be traced end-to-end.
 
-A third pipeline adds multi-turn memory on top of the structured one: `app/sessions/` holds an in-memory `Session` per `session_id`, a sliding-window `ConversationHistory` (last `MAX_TURNS` turns) plus a separate, never-truncated `ProjectMetadata` (project name, team size, technologies, scope, constraints, rejected options). `EstimationService.estimate_in_session` renders a dedicated conversational prompt (`v2`, with a `<project_metadata>` block) and replays the session's history; after the LLM call, it appends the turn and refreshes `ProjectMetadata` through `app/sessions/metadata_extractor.py`, which asks a small dedicated model for only what changed this turn and merges it deterministically with what's already known, see "Updating `project_metadata`" below for why the merge is Python, not the LLM's job. Attachments (PDF/Word) are extracted locally, length-capped, and folded into that turn's prompt.
+A third pipeline adds multi-turn memory on top of the structured one: `app/sessions/` holds an in-memory `Session` per `session_id`, a sliding-window `ConversationHistory` (last `MAX_TURNS` turns) plus a separate, never-truncated `ProjectMetadata` (project name, team size, technologies, scope, constraints, rejected options). `EstimationService.estimate_in_session` renders a dedicated conversational prompt (`v3`, with a `<project_metadata>` block and an `<audience>` block) and replays the session's history; after the LLM call, it appends the turn, runs `app/sessions/compression` (Session 5: rescue durable-commitment turns as anchors, fold the rest into a running summary, then trim the window), and refreshes `ProjectMetadata` through `app/sessions/metadata_extractor.py`, which asks a small dedicated model for only what changed this turn and merges it deterministically with what's already known, see "Updating `project_metadata`" below for why the merge is Python, not the LLM's job. A rule chain in `app/sessions/tier_resolver.py` also resolves an audience tier (executive / pm / developer / default) from the transcript + metadata each turn, echoed back on the response. Attachments (PDF/Word) are extracted locally, length-capped, and folded into that turn's prompt.
 
 Streamlit is a thin HTTP client of the API (not a second place that talks to the LLM), with three tabs: a **structured estimate** form that POSTs an `EstimationRequest` and renders the validated result, a **chat** that streams a free-text estimation from the SSE endpoint, and a **project session** tab for the multi-turn flow with file uploads and a live `project_metadata` panel.
 
@@ -58,13 +58,20 @@ cag-estimator/
 │   ├── attachments/
 │   │   └── extraction.py       -- PDF/Word local text extraction, self-validating, length cap
 │   ├── sessions/
-│   │   ├── models.py           -- Session, ConversationHistory, ProjectMetadata (+ merge_with), AttachmentReport
+│   │   ├── models.py           -- Session, ConversationHistory (+ anchors, summary), ProjectMetadata (+ merge_with), AttachmentReport
 │   │   ├── store.py             -- SessionStore (in-memory dict)
-│   │   └── metadata_extractor.py -- update_metadata(): LLM delta extraction + deterministic merge
+│   │   ├── metadata_extractor.py -- update_metadata(): LLM delta extraction + deterministic merge
+│   │   ├── tier_resolver.py     -- resolve_tier(): rule chain deriving the audience tier at runtime
+│   │   └── compression/
+│   │       ├── anchors.py       -- AnchorDetector: heuristic (regex, EN+ES) or LLM-based
+│   │       ├── summarizer.py    -- CumulativeSummarizer: folds evicted turns into a running summary
+│   │       └── policy.py        -- CompressionPolicy: trims the window, promotes anchors, calls the summarizer
 │   ├── prompts/
-│   │   ├── loader.py            -- render_estimation_prompt / render_session_prompt / render_metadata_extraction_prompt
+│   │   ├── loader.py            -- render_estimation_prompt / render_session_prompt / render_metadata_extraction_prompt / render_conversation_summary_prompt
 │   │   ├── estimation/v1/       -- system.j2, user.j2, metadata_extraction.j2, examples.j2 (single-shot)
-│   │   └── estimation/v2/       -- system.j2, user.j2 (conversational: adds <project_metadata>)
+│   │   ├── estimation/v2/       -- system.j2, user.j2 (conversational: adds <project_metadata>)
+│   │   ├── estimation/v3/       -- system.j2, user.j2 (conversational: adds <audience>, the resolved tier)
+│   │   └── conversation_summary/v1/ -- system.j2, user.j2 (the cumulative-summary pass)
 │   ├── context/
 │   │   └── examples.py         -- CAG reference examples for the free-text flow
 │   └── schemas/
@@ -114,7 +121,7 @@ See [`.env.example`](.env.example) for the full list. Beyond the API keys and mo
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `PROMPT_VERSION` | `v1` | Which template under `app/prompts/estimation/` serves the single-shot endpoint |
-| `CONVERSATIONAL_PROMPT_VERSION` | `v2` | Which template serves the session endpoint (has its own `<project_metadata>` block) |
+| `CONVERSATIONAL_PROMPT_VERSION` | `v3` | Which template serves the session endpoint (`v3` has `<project_metadata>` and `<audience>`) |
 | `CACHE_TTL` | `86400` | Exact-match cache TTL, in seconds |
 | `EMBEDDING_MODEL` | `text-embedding-3-small` | Embeddings for the semantic cache |
 | `SEMANTIC_CACHE_THRESHOLD` | `0.85` | Minimum cosine similarity to serve a semantic hit |
@@ -123,6 +130,9 @@ See [`.env.example`](.env.example) for the full list. Beyond the API keys and mo
 | `MAX_ATTACHMENT_WORDS` | `8000` | Word-count cap per attachment; over this it's reported as failed, not truncated |
 | `METADATA_EXTRACTOR_MODEL` | `gpt-4o-mini` | Primary model for the metadata-extraction side call |
 | `METADATA_EXTRACTOR_FALLBACK_MODEL` | `claude-haiku-4-5-20251001` | Its fallback, via the same Router mechanism as the main call |
+| `COMPRESSION_MODEL` | `gpt-5-nano` | Primary model for the compression side calls (summary + optional LLM anchor classifier) |
+| `COMPRESSION_FALLBACK_MODEL` | `claude-haiku-4-5-20251001` | Its fallback, via the same Router mechanism as the main call |
+| `ANCHOR_DETECTION_MODE` | `heuristic` | `heuristic` (regex, no LLM call) or `llm` (Instructor classifier per evicted turn) |
 
 ## Endpoints
 
@@ -190,7 +200,7 @@ The model fills an `EstimationDraft` (summary, confidence, phases) and the servi
 
 ### Prompt versions
 
-Prompts live under `app/prompts/estimation/<version>/` and are rendered by `app/prompts/loader.py`. There are two independent version settings: `PROMPT_VERSION` (default `v1`) for the single-shot endpoint's `system.j2`/`user.j2`/`examples.j2`, and `CONVERSATIONAL_PROMPT_VERSION` (default `v2`) for the session endpoint's own `system.j2`/`user.j2`, `v2` adds the `<project_metadata>` block and a "this is a multi-turn conversation" framing that `v1` deliberately does not carry, so the single-shot flow's prompt never has to reason about a concept (project memory) that doesn't apply to it. `v2/system.j2` reuses `v1/examples.j2` via `{% include %}` rather than duplicating the few-shot examples. Both versions are deploy-time decisions, not client-supplied parameters, so rolling out a new prompt is a config change and every response echoes back the version that produced it. Each render logs a `prompt_rendered` event with the version and a content hash (not the text, so descriptions stay out of the logs).
+Prompts live under `app/prompts/estimation/<version>/` and are rendered by `app/prompts/loader.py`. There are two independent version settings: `PROMPT_VERSION` (default `v1`) for the single-shot endpoint's `system.j2`/`user.j2`/`examples.j2`, and `CONVERSATIONAL_PROMPT_VERSION` (default `v3`) for the session endpoint's own `system.j2`/`user.j2`. `v2` added the `<project_metadata>` block and a "this is a multi-turn conversation" framing that `v1` deliberately does not carry, so the single-shot flow's prompt never has to reason about a concept (project memory) that doesn't apply to it. `v3` (Session 5) adds on top of `v2` an `<audience>` block driven by the tier `EstimationService` resolves for the turn (see "Dynamic audience tier" below): it doesn't add a new field to the schema, it changes how the model frames `summary`/`phases` for that turn's reader. Every version reuses `v1/examples.j2` via `{% include %}` rather than duplicating the few-shot examples. All versions are deploy-time decisions, not client-supplied parameters, so rolling out a new prompt is a config change and every response echoes back the version that produced it. Each render logs a `prompt_rendered` event with the version and a content hash (not the text, so descriptions stay out of the logs).
 
 ### `POST /api/v1/sessions` and `POST /api/v1/sessions/{session_id}/estimate`
 
@@ -220,15 +230,17 @@ Multi-turn estimation: refine the same project across several messages instead o
   },
   "attachments": [
     {"filename": "spec.pdf", "method": "pypdf", "ok": true, "note": null}
-  ]
+  ],
+  "resolved_tier": "developer",
+  "tier_rule": "technical_audience"
 }
 ```
 
 **Why no caching here.** Both cache layers are skipped for this endpoint. The exact-match cache is keyed on the description alone, but the same transcript text means something different depending on the session's history and `project_metadata`, serving a cached answer would silently ignore the conversation. Making it cache-safe would mean folding the entire history + metadata into the key, which defeats the point of reusing anything.
 
-**History vs. memory.** `ConversationHistory` (`app/sessions/models.py`, a Pydantic model) keeps a sliding window of the last `MAX_TURNS` `(user, assistant)` pairs, appended via `.append(user=..., assistant=...)` and trimmed automatically. The system prompt is rebuilt fresh each turn from the current `ProjectMetadata` and prepended by the caller, never stored in the window, so "always preserve the system prompt" is automatic rather than a truncation special case. The assistant side of each turn stores the estimation's **full JSON** (`EstimationResult.model_dump_json()`), not a hand-written summary, so nothing about a past turn's answer is lossy-compressed before it even leaves the window.
+**History vs. memory.** `ConversationHistory` (`app/sessions/models.py`, a Pydantic model) keeps a sliding window of the last `MAX_TURNS` `(user, assistant)` pairs, appended via `.append(user=..., assistant=...)`. `append` itself no longer trims (Session 5): trimming is `CompressionPolicy`'s job, since deciding whether an overflowing turn is disposable or must be rescued verbatim requires inspecting it first, see "Hybrid compression" below. The system prompt is rebuilt fresh each turn from the current `ProjectMetadata` and prepended by the caller, never stored in the window, so "always preserve the system prompt" is automatic rather than a truncation special case. The assistant side of each turn stores the estimation's **full JSON** (`EstimationResult.model_dump_json()`), not a hand-written summary, so nothing about a past turn's answer is lossy-compressed before it even leaves the window.
 
-`ProjectMetadata` is a separate, never-truncated Pydantic model (project name, team size, technologies, agreed scope, constraints, rejected options) injected into the `v2` system prompt's `<project_metadata>` block on every turn. A fact from turn 1 still informs turn 20 even after turn 1 has scrolled out of the window, because it lives on the session, not inside the window, this is what makes a plain sliding window a reasonable default instead of needing summarization from day one.
+`ProjectMetadata` is a separate, never-truncated Pydantic model (project name, team size, technologies, agreed scope, constraints, rejected options) injected into the system prompt's `<project_metadata>` block on every turn. A fact from turn 1 still informs turn 20 even after turn 1 has scrolled out of the window, because it lives on the session, not inside the window.
 
 **Updating `project_metadata`: an LLM delta + a deterministic Python merge.** After each turn, `app/sessions/metadata_extractor.py`'s `update_metadata()` asks a small, dedicated model (`METADATA_EXTRACTOR_MODEL`, with its own fallback via the Router, see below) for **only what's new or changed this turn**, not the full object. `ProjectMetadata.merge_with()` then combines that with what's already known: scalar fields are overwritten only when the update provides a non-null value, and list fields (`mentioned_technologies`, `explicit_constraints`, `rejected_options`) are unioned rather than replaced. This split matters because an LLM is non-deterministic: if the extractor call forgot to restate `project_name` on some turn, asking it for "the full updated object" would silently erase it. Asking for a delta and merging in Python means a forgotten field just falls back to the previous value, it can't regress. Both the extractor prompt and this merge were chosen and validated against exactly that failure mode; a regex heuristic was the cheaper alternative but doesn't hold up against free-form, bilingual (ES/EN) input as well as an LLM delta does. The extractor call fails open: if it errors after retries, `update_metadata` logs it and returns the previous metadata unchanged, so a flaky side call never turns a successful estimation into a 502.
 
@@ -244,20 +256,38 @@ Multi-turn estimation: refine the same project across several messages instead o
 
 This keeps the common case (born-digital PDFs, Word docs) fully local while still reaching an answer for a scanned document, without ever letting attachment handling take down the whole request. Each attachment's outcome (`pypdf` / `pymupdf` / `docx` / `llm_fallback` / `too_long` / `failed`) is reported back in the response so the client can show what happened; Streamlit's Project session tab surfaces a `too_long` one as an explicit warning.
 
+### Hybrid compression: anchors + cumulative summary (Session 5)
+
+A plain sliding window eventually forgets things a long negotiation cannot afford to lose, a signed NDA mentioned on turn 2 is gone from the model's context by turn 10. `app/sessions/compression/` (`CompressionPolicy.apply`, called right after `history.append` in `EstimationService.estimate_in_session`) replaces the silent drop with two escape hatches, one per pair evicted from the window:
+
+1. **`AnchorDetector`** inspects the evicted user turn. If it carries a durable commitment, signed contract, frozen scope, locked budget, legal/compliance mention (NDA, GDPR/RGPD, HIPAA, …), both messages of the pair move to `history.anchors` instead of being dropped: anchors are never evicted again, and `to_messages()` always splices them back in verbatim, after the summary and before the recent window. Two strategies, set via `ANCHOR_DETECTION_MODE`: `heuristic` (default) is a curated regex phrase list, duplicated for Spanish for the same reason `app/guardrails/input.py`'s prompt-injection patterns are, this service accepts descriptions in any language, so an English-only pattern list would be a real gap, not just incompleteness; `llm` classifies the turn through the same `LLMWrapper.complete_structured_with_messages` primitive every other structured call uses (routed to the `"compression"` Router group), more robust to paraphrase, at the cost of one extra call per evicted turn, and it fails open onto the heuristic if that call errors.
+2. **`CumulativeSummarizer`** takes whatever wasn't promoted to an anchor and folds it into `history.summary`, a single rolling free-text summary (not a chain of them), via its own Instructor call. On failure it keeps the previous summary intact, losing one compaction pass is fine, wiping state the conversation already committed to is not.
+
+`ConversationHistory.to_messages()` composes the result as `[summary?] + anchors_in_order + recent_sliding_window`, the summary is wrapped as a synthetic, visually-marked user message so the model treats it as prior context rather than an instruction from the current turn. Anchors have no count cap in this phase: with `MAX_TURNS` small and anchors meant to be rare, unbounded accumulation isn't expected to be a real problem before it would be worth the added complexity of capping them.
+
+Both the summarizer and the LLM anchor classifier run against a dedicated, cheaper Router group (`"compression"`, `COMPRESSION_MODEL` / `COMPRESSION_FALLBACK_MODEL`, default `gpt-5-nano` / `claude-haiku-4-5-20251001`), same reasoning as the metadata extractor's own group: a small, high-volume side call doesn't need the main model's budget, but it still needs the fallback guarantee, so it goes through the Router rather than bypassing it.
+
+### Dynamic audience tier (Session 5)
+
+`app/sessions/tier_resolver.py`'s `resolve_tier()` derives an audience tier, `executive` / `pm` / `developer` / `default`, from the current transcript plus the session's accumulated `ProjectMetadata`, and `v3`'s `<audience>` block reframes the same structured output for that reader (executive: risk-first, 3-4 plain-English phases; pm: milestone-oriented, capped phases, conservative confidence; developer: technical detail, up to 6-8 phases). It's a precedence-ordered chain of pure-function rules, evaluated in order, first match wins: `nda_detected` and `regulatory_context` (HIPAA/GDPR/RGPD/…) resolve to `executive`, `technical_audience` (two or more distinct technical keywords, one mention alone is too noisy to promote) resolves to `developer`, `low_budget_pm` (`assumed_team_size <= 2`) resolves to `pm`, anything else is `default`. A rule whose predicate raises is logged and skipped rather than aborting resolution for the remaining rules. Both `resolved_tier` and the `rule` name that fired are echoed back on `SessionEstimateResponse` (`resolved_tier`, `tier_rule`) so a client can show *why* a given framing was chosen, not just which one. Resolution is fully automatic in this phase, there is no per-call override parameter; the API surface can grow one when a real caller needs to force a tier.
+
 ## Testing
 ```bash
 uv run pytest
 ```
 The suite is offline: template rendering, schema validators, guardrail regexes, and the endpoints with either the service or just the LLM call faked out. No API keys or Redis needed.
 
-The session tests are split by concern, mirroring the four things Session 05 asks to verify independently:
+The session tests are split by concern:
 
-- `tests/test_sessions_models.py`, pure unit tests, no FastAPI, no fakes: `ConversationHistory` window trimming and role alternation, `ProjectMetadata.is_empty()`, and `ProjectMetadata.merge_with()`'s scalar-overwrite/list-union semantics (the exact mechanism that keeps a fact from regressing if the extractor forgets to restate it).
+- `tests/test_sessions_models.py`, pure unit tests, no FastAPI, no fakes: `ConversationHistory.append`/`to_messages` (including the summary/anchors composition order), `ProjectMetadata.is_empty()`, and `ProjectMetadata.merge_with()`'s scalar-overwrite/list-union semantics (the exact mechanism that keeps a fact from regressing if the extractor forgets to restate it).
 - `tests/test_sessions_metadata.py`, integration: metadata accumulates correctly across two turns of the same session.
 - `tests/test_sessions_attachments.py`, integration: a PDF's content reaches the LLM and changes the estimate; an oversized attachment is reported (`method: "too_long"`) without blocking the request.
-- `tests/test_sessions_window.py`, integration: session creation, 404 on an unknown session id, and the sliding window never exceeding `MAX_TURNS` in what's actually sent to the LLM.
+- `tests/test_sessions_window.py`, integration: session creation, 404 on an unknown session id, and the sliding window never exceeding `MAX_TURNS` raw turns once compression has kicked in.
+- `tests/test_compression_anchors.py`, pure unit tests: the heuristic regex library (English + Spanish) and the LLM mode's dispatch + fail-open-onto-heuristic behaviour.
+- `tests/test_compression_policy.py`, pure unit tests: the window trim itself, anchor promotion vs. summarization per evicted pair, and the summary accumulating correctly across repeated compression passes.
+- `tests/test_tier_resolver.py`, pure unit tests: each rule in the precedence chain, EN/ES pattern coverage, and a broken predicate being skipped in favour of the next rule.
 
-The three integration files share `tests/_session_test_helpers.py` (`FakeLLMWrapper` + a real-PDF builder via PyMuPDF), only `LLMWrapper` is faked, not the whole service, so the session/history/metadata/attachment logic itself runs for real, including parsing an actual generated PDF back with pypdf to check that attachment content really reaches the prompt.
+The integration files share `tests/_session_test_helpers.py` (`FakeLLMWrapper` + a real-PDF builder via PyMuPDF), only `LLMWrapper` is faked, not the whole service, so the session/history/metadata/attachment/compression logic itself runs for real, including parsing an actual generated PDF back with pypdf to check that attachment content really reaches the prompt.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/estimate \

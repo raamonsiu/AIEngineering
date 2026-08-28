@@ -69,6 +69,20 @@ class FakeLLMWrapper:
             meta = {"model": "gpt-4o-mini", "provider": "openai", "cost_usd": 0.00001, "latency_ms": 5}
             return delta, meta
 
+        # Local imports: these compression schemas are only exercised by the
+        # tests that push a session past its sliding window, keeping this
+        # generic double from having to know about them up front.
+        from app.sessions.compression.anchors import _AnchorClassification
+        from app.sessions.compression.summarizer import _SummaryEnvelope
+
+        if response_model is _SummaryEnvelope:
+            meta = {"model": "gpt-5-nano", "provider": "openai", "cost_usd": 0.000002, "latency_ms": 5}
+            return _SummaryEnvelope(summary="(canned summary for tests)"), meta
+
+        if response_model is _AnchorClassification:
+            meta = {"model": "gpt-5-nano", "provider": "openai", "cost_usd": 0.000002, "latency_ms": 5}
+            return _AnchorClassification(is_anchor=False, reason="no durable commitment"), meta
+
         raise AssertionError(f"unexpected response_model: {response_model}")
 
 

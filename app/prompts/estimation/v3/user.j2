@@ -1,0 +1,14 @@
+<transcript>
+{{ transcript }}
+</transcript>
+{% if attachments_block %}
+
+<attachments>
+{{ attachments_block }}
+</attachments>
+{% endif %}
+
+Project type: {{ project_type }}.
+This may be a follow-up turn in an ongoing conversation: check <project_metadata>
+above and the prior turns in this conversation for context before estimating.
+Estimate this project following the rules above.

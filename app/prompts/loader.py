@@ -76,12 +76,18 @@ def render_session_prompt(
     output_format: OutputFormat,
     project_metadata: dict,
     metadata_is_empty: bool,
+    tier: str = "default",
     attachments_block: str = "",
     version: str = "v2",
 ) -> tuple[str, str]:
     """Render the system and user prompts for one turn of a conversational
     session. Its own dedicated version (``v2`` by default) so the
     conversational prompt can evolve independently of the single-shot one.
+
+    ``tier`` is the audience tier resolved for this turn (see
+    ``app.sessions.tier_resolver``), passed as its plain string value: only
+    the ``v3`` template's ``<audience>`` block reads it, ``v2`` simply
+    ignores the extra context key.
     """
     system_context = {
         "project_type": project_type.value,
@@ -89,6 +95,7 @@ def render_session_prompt(
         "output_format": output_format.value,
         "project_metadata": project_metadata,
         "metadata_is_empty": metadata_is_empty,
+        "tier": tier,
     }
     system = _env.get_template(f"estimation/{version}/system.j2").render(**system_context)
     user = _env.get_template(f"estimation/{version}/user.j2").render(
@@ -124,3 +131,32 @@ def render_metadata_extraction_prompt(
         user_turn=user_turn,
         assistant_content=assistant_content,
     )
+
+
+def render_conversation_summary_prompt(
+    *,
+    previous_summary: str | None,
+    evicted: list[dict[str, str]],
+    version: str = "v1",
+) -> tuple[str, str]:
+    """Render the system and user prompts for one cumulative-summary pass
+    (Session 5 compression). ``evicted`` is the plain ``[{"role", "content"}]``
+    list of the turns falling off the sliding window, same shape
+    ``ConversationHistory.to_messages()`` already produces elsewhere, so the
+    caller (``CumulativeSummarizer``) never has to hand this module a
+    ``Message`` instance.
+    """
+    system = _env.get_template(f"conversation_summary/{version}/system.j2").render()
+    user = _env.get_template(f"conversation_summary/{version}/user.j2").render(
+        previous_summary=previous_summary,
+        evicted=evicted,
+    )
+
+    log.info(
+        "prompt_rendered",
+        prompt_version=version,
+        kind="conversation_summary",
+        system_hash=hashlib.sha256(system.encode("utf-8")).hexdigest()[:12],
+        user_hash=hashlib.sha256(user.encode("utf-8")).hexdigest()[:12],
+    )
+    return system, user

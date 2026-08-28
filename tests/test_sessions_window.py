@@ -1,6 +1,8 @@
 """Integration tests for the session endpoints' basic mechanics: creating a
-session, 404 on an unknown one, and the sliding window never growing past
-``MAX_TURNS`` worth of history in the messages actually sent to the LLM.
+session, 404 on an unknown one, and the sliding window (now maintained by
+``CompressionPolicy``, see ``app/sessions/compression``) never growing past
+``MAX_TURNS`` worth of raw history, with older turns folded into a
+cumulative summary instead of silently dropped.
 """
 
 from __future__ import annotations
@@ -9,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
-from app.dependencies import get_estimation_service
+from app.dependencies import get_estimation_service, get_session_store
 from app.main import app
 from app.services.estimation import EstimationService
 from tests._session_test_helpers import FakeLLMWrapper
@@ -58,8 +60,19 @@ def test_history_window_never_exceeds_max_turns(client: TestClient, fake_wrapper
 
     estimator_calls = [c for c in fake_wrapper.calls if c["model_name"] == "estimator"]
     for call in estimator_calls:
-        # system prompt + at most max_turns*2 prior turns + this turn's message.
-        assert len(call["messages"]) <= 1 + 2 * max_turns + 1
+        # system prompt + an optional synthetic summary message once
+        # compression has kicked in + at most max_turns*2 prior raw turns +
+        # this turn's message. None of these plain turns match the anchor
+        # patterns, so no anchors are promoted here.
+        assert len(call["messages"]) <= 1 + 1 + 2 * max_turns + 1
 
-    # By the last call the window is actually full, not just under the cap.
-    assert len(estimator_calls[-1]["messages"]) == 1 + 2 * max_turns + 1
+    # By the last call the raw sliding window is actually full, not just
+    # under the cap, and compression has already folded the overflow into a
+    # running summary rather than dropping it outright.
+    assert len(estimator_calls[-1]["messages"]) == 1 + 1 + 2 * max_turns + 1
+
+    store = get_session_store()
+    session = store.get(session_id)
+    assert len(session.history.messages) == 2 * max_turns
+    assert session.history.summary is not None
+    assert session.history.anchors == []

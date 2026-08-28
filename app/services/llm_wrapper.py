@@ -95,6 +95,8 @@ class LLMWrapper:
         cache: EstimationCache,
         metadata_extractor_model: str = "gpt-4o-mini",
         metadata_extractor_fallback_model: str = "claude-haiku-4-5-20251001",
+        compression_model: str = "gpt-5-nano",
+        compression_fallback_model: str = "claude-haiku-4-5-20251001",
     ):
         self.openai_api_key = openai_api_key
         self.anthropic_api_key = anthropic_api_key
@@ -104,12 +106,13 @@ class LLMWrapper:
         self.num_retries = num_retries
         self.cache = cache
 
-        # Two logical model groups, each with its own primary->fallback pair:
-        # "estimator" for the main estimation call, "metadata_extractor" for
-        # the small/cheap side call that refreshes ProjectMetadata. Keeping
-        # them as separate Router groups (rather than one call bypassing the
-        # Router with litellm.completion directly) means the metadata call
-        # keeps the same fallback guarantee as the main one.
+        # Three logical model groups, each with its own primary->fallback
+        # pair: "estimator" for the main estimation call, "metadata_extractor"
+        # for the small/cheap side call that refreshes ProjectMetadata, and
+        # "compression" for the summarizer/anchor-classifier side calls
+        # (Session 5). Keeping them as separate Router groups (rather than
+        # bypassing the Router with litellm.completion directly) means every
+        # side call keeps the same fallback guarantee as the main one.
         self.router = Router(
             model_list=[
                 {
@@ -144,8 +147,28 @@ class LLMWrapper:
                         "timeout": timeout,
                     },
                 },
+                {
+                    "model_name": "compression",
+                    "litellm_params": {
+                        "model": compression_model,
+                        "api_key": openai_api_key,
+                        "timeout": timeout,
+                    },
+                },
+                {
+                    "model_name": "compression",
+                    "litellm_params": {
+                        "model": compression_fallback_model,
+                        "api_key": anthropic_api_key,
+                        "timeout": timeout,
+                    },
+                },
             ],
-            fallbacks=[{"estimator": ["estimator"]}, {"metadata_extractor": ["metadata_extractor"]}],
+            fallbacks=[
+                {"estimator": ["estimator"]},
+                {"metadata_extractor": ["metadata_extractor"]},
+                {"compression": ["compression"]},
+            ],
             num_retries=num_retries,
         )
 

@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     # single-shot PROMPT_VERSION: it needs the <project_metadata> block and a
     # different framing, versioned independently so iterating on one flow's
     # prompt never risks the other's cache/behaviour.
-    CONVERSATIONAL_PROMPT_VERSION: str = "v2"
+    CONVERSATIONAL_PROMPT_VERSION: str = "v3"
     # Hard cap per extracted attachment, in WORDS (not tokens - the number
     # means something to a non-technical user). An oversized attachment is
     # reported back as a failed attachment rather than silently truncated, so
@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     # doesn't break metadata refresh even though it's a "side" call.
     METADATA_EXTRACTOR_MODEL: str = "gpt-4o-mini"
     METADATA_EXTRACTOR_FALLBACK_MODEL: str = "claude-haiku-4-5-20251001"
+
+    # Compression (Session 5): folds evicted history into a running summary,
+    # and optionally classifies anchor turns. Both are light, high-volume
+    # side calls, so they get the cheapest model with structured-output
+    # support (gpt-5-nano) rather than reusing PRIMARY_MODEL.
+    COMPRESSION_MODEL: str = "gpt-5-nano"
+    COMPRESSION_FALLBACK_MODEL: str = "claude-haiku-4-5-20251001"
+    # "heuristic": free regex match, no LLM call, deterministic. "llm": an
+    # Instructor classifier call per evicted turn, more robust to paraphrase
+    # at the cost of one extra call. Heuristic is the safe default; llm is
+    # opt-in via env for sessions where recall matters more than cost.
+    ANCHOR_DETECTION_MODE: Literal["heuristic", "llm"] = "heuristic"
 
     @model_validator(mode="after")
     def validate_at_least_one_api_key(self) -> "Settings":
