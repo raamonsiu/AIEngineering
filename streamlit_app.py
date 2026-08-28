@@ -2,10 +2,8 @@
 
 Streamlit acts as a pure HTTP client of the FastAPI service. It holds no LLM API
 key and never calls a provider directly, the API owns the guardrails, the
-caches, the prompt versioning and the provider fallback. Three tabs, three flows:
+caches, the prompt versioning and the provider fallback. Two tabs, two flows:
 
-- **Structured estimate**: a typed ``EstimationRequest`` to
-  ``POST /api/v1/estimate``, rendering the validated ``EstimationResult``.
 - **Chat**: a free-text transcription streamed from
   ``POST /api/v1/estimate/stream`` and rendered token by token.
 - **Project session**: a multi-turn conversation against
@@ -13,6 +11,13 @@ caches, the prompt versioning and the provider fallback. Three tabs, three flows
   optional PDF/Word attachments. Shows ``project_metadata`` explicitly so the
   separation between conversation history (windowed) and memory (durable) is
   visible, not just a backend implementation detail.
+
+There used to be a third, "Structured estimate" tab against the single-shot
+``POST /api/v1/estimate``: dropped because Project session is a strict
+superset of what it did (same typed selectors, same validated result
+rendering, plus memory and attachments), so keeping both was two UIs for one
+capability. The single-shot endpoint itself is untouched, still exercised by
+`tests/test_estimate_endpoint.py` and reachable directly for API consumers.
 
 The prompt version is deliberately NOT surfaced: which template the service
 runs is a deploy-time decision (``PROMPT_VERSION`` in settings), not something
@@ -35,11 +40,9 @@ from app.services.llm_service import build_system_prompt
 
 settings = get_settings()
 API_BASE = settings.ESTIMATOR_API_BASE_URL.rstrip("/")
-ESTIMATE_ENDPOINT = f"{API_BASE}/api/v1/estimate"
 STREAM_ENDPOINT = f"{API_BASE}/api/v1/estimate/stream"
 SESSIONS_ENDPOINT = f"{API_BASE}/api/v1/sessions"
 
-MIN_DESCRIPTION_LENGTH = 20
 MIN_TRANSCRIPTION_LENGTH = 50
 MIN_SESSION_MESSAGE_LENGTH = 10
 
@@ -111,21 +114,6 @@ def describe_rejection(payload: object, status_code: int) -> str:
             parts.append(f"{field}: {err.get('msg', 'is invalid')}")
         return "Please check the form, " + "; ".join(parts) + "."
     return f"The service returned an error ({status_code})."
-
-
-def request_estimation(payload: dict) -> dict:
-    """POST to the estimate endpoint, raising RuntimeError with a friendly
-    message on any rejection (400 guardrail, 422 validation, 502 upstream)."""
-    response = httpx.post(
-        ESTIMATE_ENDPOINT, json=payload, timeout=httpx.Timeout(180.0, connect=10.0)
-    )
-    if response.status_code >= 400:
-        try:
-            detail = response.json().get("detail", response.text)
-        except ValueError:
-            detail = response.text
-        raise RuntimeError(describe_rejection(detail, response.status_code))
-    return response.json()
 
 
 def stream_estimation(transcription: str, meta_holder: dict):
@@ -221,62 +209,7 @@ def request_session_estimation(
     return response.json()
 
 
-form_tab, chat_tab, session_tab = st.tabs(["Structured estimate", "Chat", "Project session"])
-
-with form_tab:
-    with st.form("estimation_form"):
-        description = st.text_area(
-            "Project description",
-            height=200,
-            placeholder="Describe the project: goals, key features, constraints…",
-            help=f"At least {MIN_DESCRIPTION_LENGTH} characters.",
-        )
-        project_type = st.selectbox(
-            "Project type", options=list(ProjectType), format_func=lambda v: humanise(v.value)
-        )
-        detail_level = st.radio(
-            "Detail level",
-            options=list(DetailLevel),
-            index=1,
-            horizontal=True,
-            format_func=lambda v: humanise(v.value),
-        )
-        output_format = st.selectbox(
-            "Output format", options=list(OutputFormat), format_func=lambda v: humanise(v.value)
-        )
-        submitted = st.form_submit_button("Generate estimation", type="primary")
-
-    if submitted:
-        if len(description.strip()) < MIN_DESCRIPTION_LENGTH:
-            st.error(
-                f"The description is too short ({len(description.strip())} characters). "
-                f"Please describe the project in at least {MIN_DESCRIPTION_LENGTH} characters."
-            )
-        else:
-            started = time.perf_counter()
-            try:
-                with st.spinner("Estimating…"):
-                    body = request_estimation(
-                        {
-                            "description": description.strip(),
-                            "project_type": project_type.value,
-                            "detail_level": detail_level.value,
-                            "output_format": output_format.value,
-                        }
-                    )
-            except RuntimeError as exc:
-                st.error(str(exc))
-            except httpx.HTTPError as exc:
-                st.error(f"Could not reach the estimator at `{ESTIMATE_ENDPOINT}`: {exc}")
-            else:
-                elapsed = round(time.perf_counter() - started, 2)
-                render_estimation_result(body["result"])
-
-                st.session_state.last_call = {
-                    "elapsed": elapsed,
-                    "cached": body.get("cached", False),
-                    **body.get("meta", {}),
-                }
+chat_tab, session_tab = st.tabs(["Chat", "Project session"])
 
 with chat_tab:
     st.caption(
@@ -476,7 +409,6 @@ with session_tab:
 
 with st.sidebar:
     st.header("Service")
-    st.code(ESTIMATE_ENDPOINT, language="text")
     st.code(STREAM_ENDPOINT, language="text")
     st.markdown(f"**Primary model:** `{settings.PRIMARY_MODEL}`")
     st.markdown(f"**Fallback model:** `{settings.FALLBACK_MODEL}`")
