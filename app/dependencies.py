@@ -10,10 +10,15 @@ from openai import OpenAI
 
 from app.cache.semantic import EstimationSemanticCache
 from app.config import get_settings
+from app.ingest.anonymization.mapping_store import JsonMappingStore
+from app.ingest.anonymization.pseudonymizer import ConsistentPseudonymizer
+from app.ingest.catalog import DataCatalog, load_catalog
+from app.ingest.orchestrator import IngestionPipeline
 from app.services.cache import EstimationCache
 from app.services.estimation import EstimationService
 from app.services.llm_wrapper import LLMWrapper
 from app.sessions import SessionStore
+from pathlib import Path
 
 log = structlog.get_logger()
 
@@ -108,4 +113,54 @@ def get_estimation_service() -> EstimationService:
         conversational_prompt_version=settings.CONVERSATIONAL_PROMPT_VERSION,
         max_attachment_words=settings.MAX_ATTACHMENT_WORDS,
         anchor_detection_mode=settings.ANCHOR_DETECTION_MODE,
+    )
+
+
+# ----------------------------------------------------------------------
+# RAG ingest subsystem (Session 6)
+# ----------------------------------------------------------------------
+
+
+@lru_cache
+def get_data_catalog() -> DataCatalog:
+    """Load the data catalog once per process.
+
+    Cached because it is read on every indexing run and never changes
+    without a deploy — it is a versioned artefact in the repository, not
+    runtime state.
+    """
+    return load_catalog(Path(get_settings().DATA_CATALOG_PATH))
+
+
+@lru_cache
+def get_mapping_store() -> JsonMappingStore:
+    return JsonMappingStore(Path(get_settings().PSEUDONYM_MAPPING_PATH))
+
+
+@lru_cache
+def get_pseudonymizer() -> ConsistentPseudonymizer:
+    """Build the pseudonymiser once: it owns a spaCy model whose load
+    costs seconds, and the offline pipeline calls it per document."""
+    settings = get_settings()
+    return ConsistentPseudonymizer(
+        get_mapping_store(),
+        locale=settings.PSEUDONYM_LOCALE,
+        score_threshold=settings.PII_SCORE_THRESHOLD,
+    )
+
+
+def get_ingestion_pipeline() -> IngestionPipeline:
+    """NOT cached, unlike the other factories.
+
+    An indexing run mutates nothing on the pipeline object, but the
+    catalog it is built from is the thing an operator edits between runs.
+    A cached pipeline would keep serving a stale catalog until the process
+    restarted, which is exactly the silent-staleness failure the catalog
+    exists to prevent.
+    """
+    settings = get_settings()
+    return IngestionPipeline(
+        get_data_catalog(),
+        corpus_root=Path(settings.CORPUS_ROOT),
+        pseudonymizer=get_pseudonymizer(),
     )

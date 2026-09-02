@@ -68,6 +68,23 @@ class Settings(BaseSettings):
     # opt-in via env for sessions where recall matters more than cost.
     ANCHOR_DETECTION_MODE: Literal["heuristic", "llm"] = "heuristic"
 
+    # --- RAG ingest subsystem (Session 6) --------------------------------
+    # The catalog is the control surface of the offline pipeline, so its
+    # path is configuration, not a constant: a staging deployment points
+    # at a different catalog without a code change.
+    DATA_CATALOG_PATH: str = "data/data_catalog.yaml"
+    CORPUS_ROOT: str = "data/corpus"
+    # The pseudonym mapping table. Deliberately outside the corpus tree and
+    # out of version control: it is itself personal data under GDPR, and
+    # the link between a real person and their pseudonym is the one thing
+    # that must never ship with the repository.
+    PSEUDONYM_MAPPING_PATH: str = "data/.pseudonyms.json"
+    PSEUDONYM_LOCALE: str = "es_ES"
+    # Raised from Presidio's 0.5 default: the Spanish NER model tags common
+    # nouns ("Mar", "Sol", "Cruz") as PERSON often enough that 0.5 produces
+    # more noise than signal. See app/ingest/anonymization/recognizers.py.
+    PII_SCORE_THRESHOLD: float = 0.7
+
     @model_validator(mode="after")
     def validate_at_least_one_api_key(self) -> "Settings":
         """LiteLLM's Router may dispatch to either provider on fallback, so at
