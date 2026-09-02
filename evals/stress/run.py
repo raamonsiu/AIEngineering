@@ -230,9 +230,19 @@ def _score_attachment_recall(probe: dict, expected: bool) -> dict[str, Any]:
     if not expected:
         return {"attachment_recall_mean": "", "attachment_recall_detail": ""}
 
+    # The marker's own surface forms are the needles; its ``key`` is only a
+    # label. Passing the key as the fact would put words like "deadline"
+    # into the search, and an estimation summary says "deadline" all the
+    # time — the metric would then score the model's vocabulary rather than
+    # whether the attachment reached it.
     results = run_all_metrics(
         [
-            MemoryDriftMetric(m.key, where=["response"], aliases=m.needles)
+            MemoryDriftMetric(
+                m.needles[0],
+                where=["response"],
+                aliases=m.needles[1:],
+                name=f"attachment_{m.key}",
+            )
             for m in MARKERS
         ],
         probe,
