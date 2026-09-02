@@ -1,0 +1,209 @@
+# Data catalog — the control surface of the offline indexing pipeline.
+#
+# This is not documentation. `app/ingest/orchestrator.py` iterates over the
+# sources marked `include` and processes nothing else, so editing `decision`
+# here changes what the system ingests. Its git log is the record of how the
+# corpus has evolved and who decided what.
+#
+# Quality scores describe the RAW source, before any remediation. A source
+# can therefore be `include` while scoring below the RAG-ready bar, provided
+# the pipeline has a declared remediation for the weak dimension — see the
+# notes on `historical_budgets`. What is never acceptable is a weak score
+# with no note explaining what happens about it.
+version: 1
+last_audited: "2026-09-02"
+corpus_root: data/corpus
+
+sources:
+  - name: historical_budgets
+    description: >
+      Presupuestos cerrados exportados del ERP financiero como JSON, uno por
+      fichero. Fuente de verdad para recuperar proyectos similares cuando el
+      sistema tiene que justificar una estimación con precedentes.
+    location: file://historical_budgets/
+    owner_technical: data-platform@digimevo.com
+    owner_business: ops-lead@digimevo.com
+    format: json
+    pipeline: tabular
+    volume:
+      records: 28
+      size_mb: 0.031
+    refresh:
+      declared: monthly
+      observed_last_update: "2026-09-01"
+      observed_lag_days: 1
+    quality:
+      # Medido sobre los 28 registros crudos:
+      completeness: 3   # 3 de 28 traen nulos disfrazados en campos requeridos
+      consistency: 2    # 4 grafías de moneda, 3 de fecha, 3 tipos de importe, 4 de cliente
+      actuality: 4      # el export está al día; la última firma es de hace ~6 meses
+      reliability: 5    # export automático del ERP, con validación en origen
+    sensitivity:
+      contains_pii: true
+      pii_types: [client_names, client_codes, contact_emails, contact_phones, account_managers]
+      access_restrictions: internal-only
+    lineage:
+      upstream: erp-finance-module
+      transformations: [export_to_json_monthly]
+    decision: include
+    notes: >
+      NO es apta para RAG tal cual (consistencia 2) y aun así se incluye: la
+      capa tabular de limpieza resuelve exactamente esa dimensión —
+      unifica las 4 grafías de moneda, los 3 formatos de fecha y los 3 tipos
+      de importe— antes de que Pandera valide nada. La puntuación describe la
+      fuente, no la salida del pipeline. Dos budget_id aparecen duplicados con
+      importes divergentes (BUDGET-2024-0312, BUDGET-2023-0188); se resuelven
+      quedándose con la firma más reciente, que es una decisión de negocio, no
+      técnica. Observación aparte: el fichero está fresco pero la última firma
+      real es de 2026-02-24, así que el export corre sin que se cierren
+      presupuestos nuevos.
+
+  - name: meeting_transcripts
+    description: >
+      Transcripciones literales de reuniones de kickoff y de alcance con
+      cliente, acumuladas desde 2022.
+    location: file://meeting_transcripts/
+    owner_technical: it-ops@digimevo.com
+    owner_business: pre-sales@digimevo.com
+    format: txt
+    pipeline: text
+    volume:
+      records: 12
+      size_mb: 0.032
+    refresh:
+      declared: weekly
+      observed_last_update: "2026-09-01"
+      observed_lag_days: 1
+    quality:
+      completeness: 5
+      consistency: 2    # dos formatos incompatibles conviviendo
+      actuality: 4
+      reliability: 4    # servicio automático de transcripción + revisión manual
+    sensitivity:
+      contains_pii: true
+      pii_types: [personal_names, client_names, emails, phone_numbers]
+      access_restrictions: internal-only
+    lineage:
+      upstream: automated-transcription-service
+      transformations: [speech_to_text, manual_review]
+    decision: review
+    notes: >
+      Dos eras de formato: las 7 de 2024 en adelante traen `[hh:mm:ss]
+      Hablante:` en cada línea; las 5 anteriores son prosa corrida sin
+      atribución. El parser detecta ambas y marca las antiguas con
+      `speaker_attribution: unavailable`, así que el problema técnico está
+      resuelto. Lo que queda pendiente es una decisión de producto, y por eso
+      está en revisión y no incluida: una afirmación sobre presupuesto que no
+      se puede atribuir a nadie no puede pesar lo mismo que una que sí, y el
+      sistema todavía no distingue. Incluirlas es cambiar esta línea a
+      `include`; no hace falta tocar código.
+
+  - name: proposal_templates
+    description: >
+      Plantillas de propuesta comercial en DOCX, con la estructura estándar de
+      secciones (Alcance, Entregables, Cronograma, Equipo, Condiciones
+      económicas).
+    location: file://proposal_templates/
+    owner_technical: it-ops@digimevo.com
+    owner_business: pre-sales@digimevo.com
+    format: docx
+    pipeline: text
+    volume:
+      records: 5
+      size_mb: 0.182
+    refresh:
+      declared: quarterly
+      observed_last_update: "2026-09-01"
+      observed_lag_days: 1
+    quality:
+      completeness: 5
+      consistency: 4   # jerarquía de headings homogénea en las 5
+      actuality: 4
+      reliability: 5
+    sensitivity:
+      contains_pii: true
+      pii_types: [client_names, personal_names]
+      access_restrictions: internal-only
+    lineage:
+      upstream: proposal-template-repo
+      transformations: [manual_authoring]
+    decision: include
+    notes: >
+      El formato más cooperativo del corpus: los DOCX llevan jerarquía
+      semántica explícita, así que el parser emite una unidad por sección y
+      el retrieval puede devolver "el Cronograma de la propuesta X" en lugar
+      de la propuesta entera.
+
+  - name: signed_contracts
+    description: >
+      Contratos firmados en PDF nativo digital, con referencia al presupuesto
+      que formalizan.
+    location: file://signed_contracts/
+    owner_technical: legal-ops@digimevo.com
+    owner_business: legal@digimevo.com
+    format: pdf
+    pipeline: text
+    volume:
+      records: 6
+      size_mb: 0.055
+    refresh:
+      declared: monthly
+      observed_last_update: "2026-09-01"
+      observed_lag_days: 1
+    quality:
+      completeness: 4
+      consistency: 4
+      actuality: 4
+      reliability: 5   # documento firmado: la máxima autoridad del corpus
+    sensitivity:
+      contains_pii: true
+      pii_types: [client_names, personal_names, contract_terms]
+      access_restrictions: internal-only
+    lineage:
+      upstream: document-management-system
+      transformations: [pdf_export, manual_signature]
+    decision: include
+    notes: >
+      Todos nativos digitales con capa de texto real: 0 imágenes embebidas y
+      extracción no vacía en las 14 páginas. Por eso el parser usa la cascada
+      nativa pypdf→PyMuPDF y NO `unstructured` con `hi_res`, que costaría un
+      orden de magnitud más de latencia y compute para recuperar tablas y OCR
+      que este corpus no necesita. Si entraran escaneados, esta nota es lo que
+      habría que revisar.
+
+  - name: official_rate_card
+    description: >
+      Tarifas oficiales por rol y seniority. Oficialmente la fuente de verdad
+      para tarifas.
+    location: file://rate_card/
+    owner_technical: finance@digimevo.com
+    owner_business: cfo-office@digimevo.com
+    format: xlsx
+    pipeline: text
+    volume:
+      records: 1
+      size_mb: 0.006
+    refresh:
+      declared: yearly
+      observed_last_update: "2024-01-18"
+      observed_lag_days: 958
+    quality:
+      completeness: 5
+      consistency: 5
+      actuality: 1   # 2,6 ciclos sin actualizar
+      reliability: 5
+    sensitivity:
+      contains_pii: false
+    lineage:
+      upstream: finance-spreadsheet-manual
+      transformations: []
+    decision: exclude
+    notes: >
+      El caso de libro: oficialmente autoritativa, en la práctica abandonada.
+      Última modificación enero de 2024 frente a un ciclo declarado anual —
+      2,6 ciclos sin tocar. Incluirla no metería ruido aleatorio (eso sería
+      fácil de detectar): metería respuestas seguras con tarifas que ya no
+      rigen, que es el peor modo de fallo de un RAG. Excluida hasta que
+      finanzas entregue una versión refrescada. Las tarifas vigentes son
+      contexto pequeño y estable, así que su sitio natural es la capa CAG
+      estática del prompt, no el índice vectorial.

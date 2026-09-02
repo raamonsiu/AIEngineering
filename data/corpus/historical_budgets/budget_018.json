@@ -1,0 +1,51 @@
+{
+  "budget_id": "BUDGET-2026-0021",
+  "client_name": "Editorial Marimón",
+  "client_code": "CLI-1009",
+  "project_type": "mobile_ecommerce",
+  "total_amount": 19375.0,
+  "currency": "EUR",
+  "hours_estimated": 310,
+  "signed_at": "2026-02-24",
+  "status": "draft",
+  "contact_email": "pau.marimon@editorialmarimon.cat",
+  "contact_phone": "+34 934 28 90 56",
+  "account_manager": "Irene Castaño Abad",
+  "phases": [
+    {
+      "name": "Diseño UI/UX móvil (iOS y Android)",
+      "hours": 78,
+      "cost_eur": 4875.0
+    },
+    {
+      "name": "Catálogo de producto y buscador",
+      "hours": 50,
+      "cost_eur": 3125.0
+    },
+    {
+      "name": "Carrito y proceso de compra",
+      "hours": 43,
+      "cost_eur": 2687.5
+    },
+    {
+      "name": "Integración de pasarela de pago",
+      "hours": 37,
+      "cost_eur": 2312.5
+    },
+    {
+      "name": "Gestión de pedidos",
+      "hours": 34,
+      "cost_eur": 2125.0
+    },
+    {
+      "name": "Autenticación y perfil de usuario",
+      "hours": 25,
+      "cost_eur": 1562.5
+    },
+    {
+      "name": "QA y publicación en stores",
+      "hours": 43,
+      "cost_eur": 2687.5
+    }
+  ]
+}

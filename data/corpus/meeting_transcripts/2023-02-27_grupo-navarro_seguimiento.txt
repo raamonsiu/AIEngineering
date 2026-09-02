@@ -1,0 +1,33 @@
+ACTA DE REUNION - GRUPO NAVARRO LOGÍSTICA - 2023-02-27
+
+Lidrai Soluciones Digitales S.L.   Asistentes y notas tomadas a mano, sin grabacion.
+
+Responsable de cuenta: pendiente
+
+Correo de contacto: N/A
+
+Teléfono: -
+
+Víctor comenta que buenos días y gracias por el tiempo.  Soy Víctor Salazar Prieto, de Lidrai Soluciones Digitales S.L., y me acompaña Jorge Tejedor Arroyo, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de cuadro de mando analítico en tiempo real para Grupo Navarro Logística. Sergio apunta que encantado.  Yo soy Sergio Navarro Puig y conmigo está Alicia Used Mainar, de nuestro equipo de operaciones. Sergio comenta que los informes de ventas los montamos a mano todos los lunes y llegan tarde. Necesitamos un cuadro de mando que se actualice solo.
+
+Jorge comenta que ¿dónde están los datos de ventas ahora mismo y con qué frecuencia cambian? Alicia apunta que en PostgreSQL y en un par de ficheros de Google Sheets. Cambian a cada minuto en campaña. Víctor explica que con eso, el alcance que planteamos se estructura en fases: Diseño del cuadro de mando, Desarrollo frontend, Integración de datos y APIs, Procesamiento en tiempo real, entre otras. La referencia interna del presupuesto es BUDGET-2023-0059.
+
+
+
+Sergio apunta que ¿y de qué cifra estamos hablando? Sergio comenta que una cosa importante: en campaña no podemos permitirnos caídas de servicio.
+
+
+Sergio explica que necesitamos poder exportar todo a Excel, el comité financiero no va a cambiar de herramienta. Víctor comenta que la estimación son 500 horas, que a nuestra tarifa de 62,50 EUR/hora salen 31.250,00 EUR sin IVA. Víctor añade que el mantenimiento correctivo de los tres primeros meses va incluido; el evolutivo se contrata por bolsa de horas.
+
+
+Sergio insiste en que ¿31.250,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos. Jorge comenta que el equipo recomendado es 1 frontend + 1 backend + 1 ingeniero de datos y la duración estimada 8-10 semanas. Sergio recuerda que ¿quién formaría al equipo interno cuando esto esté en marcha?
+
+Alicia añade que nuestra fecha límite es el cierre de ejercicio. Si se pasa de ahí, pierde sentido. Víctor recuerda que anotado. Os envío el acta y la propuesta formal a s.navarro@gruponavarro.com esta misma tarde. Víctor explica que para el acta: el cliente figura como Grupo Navarro Logística en contrato, como grupo navarro en la herramienta de tickets y como GN Logistica en el ERP. Habría que unificarlo.
+
+
+Sergio comenta que y el importe que yo tengo anotado son treinta y un mil doscientos cincuenta euros, aunque en el PDF pone 31.250,00 EUR. Sergio explica que perfecto. Si hay cualquier urgencia, mi móvil directo es +34 976 23 55 41.
+
+Víctor añade que y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.
+
+
+Pendiente de confirmar presupuesto y calendario.   Se enviara propuesta por correo.

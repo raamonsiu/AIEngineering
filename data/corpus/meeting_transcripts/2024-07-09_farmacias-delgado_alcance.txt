@@ -1,0 +1,22 @@
+# Acta de reunión — Farmacias Delgado — 2024-07-09
+# Transcripción automática · Lidrai Soluciones Digitales S.L.
+
+[10:00:00] Patricia Olmedo Rubio: Buenos días y gracias por el tiempo. Soy Patricia Olmedo Rubio, de Lidrai Soluciones Digitales S.L., y me acompaña Álvaro Cifuentes Nieto, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de sistema CRM para Farmacias Delgado.
+[10:01:03] Marta Delgado Ruiz: Encantado. Yo soy Marta Delgado Ruiz y conmigo está Ignacio Pavón Lara, de nuestro equipo de operaciones.
+[10:01:39] Marta Delgado Ruiz: Los contactos están repartidos entre Outlook y un Excel compartido. Perdemos oportunidades por pura desorganización, no por falta de clientes.
+[10:03:04] Álvaro Cifuentes Nieto: ¿Qué volumen de contactos manejáis y qué necesitáis integrar con el correo?
+[10:04:20] Ignacio Pavón Lara: Unos 14.000 contactos y el correo corporativo es Microsoft 365, eso es innegociable.
+[10:05:15] Patricia Olmedo Rubio: Con eso, el alcance que planteamos se estructura en fases: Arquitectura y modelo de datos, Diseño UI/UX, Módulo de clientes, Pipeline comercial y leads, entre otras. La referencia interna del presupuesto es BUDGET-2024-0233.
+[10:06:24] Marta Delgado Ruiz: ¿Quién formaría al equipo interno cuando esto esté en marcha?
+[10:07:40] Patricia Olmedo Rubio: El mantenimiento correctivo de los tres primeros meses va incluido; el evolutivo se contrata por bolsa de horas.
+[10:08:54] Marta Delgado Ruiz: ¿Y de qué cifra estamos hablando?
+[10:09:27] Patricia Olmedo Rubio: La estimación son 410 horas, que a nuestra tarifa de 62,50 EUR/hora salen 25.625,00 EUR sin IVA.
+[10:10:03] Álvaro Cifuentes Nieto: Para la migración inicial necesitaremos un volcado de datos de prueba cuanto antes.
+[10:10:56] Álvaro Cifuentes Nieto: Proponemos entornos separados de desarrollo, preproducción y producción desde el primer sprint.
+[10:11:27] Álvaro Cifuentes Nieto: El tratamiento de datos personales quedará conforme al RGPD, con registro de accesos.
+[10:12:36] Marta Delgado Ruiz: ¿25.625,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos.
+[10:13:29] Álvaro Cifuentes Nieto: El equipo recomendado es 3 full-stack + 1 arquitecto de datos + 1 diseñador UI/UX + 1 QA y la duración estimada 12-14 semanas.
+[10:14:29] Ignacio Pavón Lara: Nuestra fecha límite es la feria del sector. Si se pasa de ahí, pierde sentido.
+[10:15:05] Patricia Olmedo Rubio: Anotado. Os envío el acta y la propuesta formal a marta.delgado@farmaciasdelgado.es esta misma tarde.
+[10:16:22] Marta Delgado Ruiz: Perfecto. Si hay cualquier urgencia, mi móvil directo es +34 954 02 76 33.
+[10:17:43] Patricia Olmedo Rubio: Y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.

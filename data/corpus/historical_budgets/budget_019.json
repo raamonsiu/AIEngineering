@@ -1,0 +1,41 @@
+{
+  "budget_id": "BUDGET-2024-0271",
+  "client_name": "Acme Corp",
+  "client_code": "CLI-1001",
+  "project_type": "inventory_platform",
+  "total_amount": "80000",
+  "currency": "eur",
+  "hours_estimated": 1280,
+  "signed_at": "15/03/2024",
+  "status": "signed",
+  "contact_email": "lucia.fernandez@acme-corp.es",
+  "contact_phone": "+34 915 44 20 18",
+  "account_manager": "Víctor Salazar Prieto",
+  "phases": [
+    {
+      "name": "Diseño UI/UX",
+      "hours": 294,
+      "cost_eur": 18375.0
+    },
+    {
+      "name": "Backend y API de inventario",
+      "hours": 435,
+      "cost_eur": 27187.5
+    },
+    {
+      "name": "Autenticación y roles",
+      "hours": 141,
+      "cost_eur": 8812.5
+    },
+    {
+      "name": "Cuadro de mando y reporting",
+      "hours": 218,
+      "cost_eur": 13625.0
+    },
+    {
+      "name": "Pruebas y QA",
+      "hours": 192,
+      "cost_eur": 12000.0
+    }
+  ]
+}

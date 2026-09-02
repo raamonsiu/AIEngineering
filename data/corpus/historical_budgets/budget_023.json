@@ -1,0 +1,41 @@
+{
+  "budget_id": "BUDGET-2024-0312",
+  "client_name": "Grupo Navarro Logística",
+  "client_code": "CLI-1003",
+  "project_type": "inventory_platform",
+  "total_amount": 52500.0,
+  "currency": "EUR",
+  "hours_estimated": 840,
+  "signed_at": "2024-05-02",
+  "status": "signed",
+  "contact_email": "s.navarro@gruponavarro.com",
+  "contact_phone": "+34 976 23 55 41",
+  "account_manager": "Irene Castaño Abad",
+  "phases": [
+    {
+      "name": "Diseño UI/UX",
+      "hours": 193,
+      "cost_eur": 12062.5
+    },
+    {
+      "name": "Backend y API de inventario",
+      "hours": 286,
+      "cost_eur": 17875.0
+    },
+    {
+      "name": "Autenticación y roles",
+      "hours": 92,
+      "cost_eur": 5750.0
+    },
+    {
+      "name": "Cuadro de mando y reporting",
+      "hours": 143,
+      "cost_eur": 8937.5
+    },
+    {
+      "name": "Pruebas y QA",
+      "hours": 126,
+      "cost_eur": 7875.0
+    }
+  ]
+}

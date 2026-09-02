@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2025-0068",
+  "client_name": "Textiles Moreno S.L.",
+  "client_code": "CLI-1002",
+  "project_type": "crm",
+  "total_amount": 22500.0,
+  "currency": "EUR",
+  "hours_estimated": 360,
+  "signed_at": "2025-04-22",
+  "status": "signed",
+  "contact_email": "javier.moreno@textilesmoreno.es",
+  "contact_phone": "+34 963 87 11 02",
+  "account_manager": "Nuria Bermejo Lastra",
+  "phases": [
+    {
+      "name": "Arquitectura y modelo de datos",
+      "hours": 25,
+      "cost_eur": 1562.5
+    },
+    {
+      "name": "Diseño UI/UX",
+      "hours": 43,
+      "cost_eur": 2687.5
+    },
+    {
+      "name": "Módulo de clientes",
+      "hours": 54,
+      "cost_eur": 3375.0
+    },
+    {
+      "name": "Pipeline comercial y leads",
+      "hours": 61,
+      "cost_eur": 3812.5
+    },
+    {
+      "name": "Herramientas de comunicación",
+      "hours": 43,
+      "cost_eur": 2687.5
+    },
+    {
+      "name": "Informes y analítica",
+      "hours": 36,
+      "cost_eur": 2250.0
+    },
+    {
+      "name": "Permisos y autenticación",
+      "hours": 25,
+      "cost_eur": 1562.5
+    },
+    {
+      "name": "Integraciones con terceros",
+      "hours": 32,
+      "cost_eur": 2000.0
+    },
+    {
+      "name": "Pruebas y QA",
+      "hours": 41,
+      "cost_eur": 2562.5
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+# Acta de reunión — Talleres Beltrán — 2025-06-04
+# Transcripción automática · Lidrai Soluciones Digitales S.L.
+
+[10:00:00] Víctor Salazar Prieto: Buenos días y gracias por el tiempo. Soy Víctor Salazar Prieto, de Lidrai Soluciones Digitales S.L., y me acompaña Miriam Escudero Pardo, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de servicio de integración de APIs para Talleres Beltrán.
+[10:00:26] Óscar Beltrán Lázaro: Encantado. Yo soy Óscar Beltrán Lázaro y conmigo está Laura Cantero Hoyos, de nuestro equipo de administración.
+[10:01:03] Óscar Beltrán Lázaro: Tenemos el ERP, la tienda online y el software de taller sin hablarse entre ellos. Todo se pasa a mano dos veces al día y se nos cuelan errores.
+[10:01:52] Miriam Escudero Pardo: ¿Cuántos sistemas hay que sincronizar y cuáles exponen API hoy?
+[10:02:30] Laura Cantero Hoyos: Tres: ERP, tienda y taller. Solo la tienda tiene API REST; el resto es ficheros y SQL.
+[10:03:32] Miriam Escudero Pardo: Para la migración inicial necesitaremos un volcado de datos de prueba cuanto antes.
+[10:05:03] Víctor Salazar Prieto: Haremos una demo cada dos semanas para que no haya sorpresas al final.
+[10:06:29] Víctor Salazar Prieto: Con eso, el alcance que planteamos se estructura en fases: Arquitectura y planificación, Integración de APIs de terceros, Motor de sincronización de datos, Gestor de webhooks, entre otras. La referencia interna del presupuesto es BUDGET-2025-0031.
+[10:07:07] Miriam Escudero Pardo: El tratamiento de datos personales quedará conforme al RGPD, con registro de accesos.
+[10:08:40] Óscar Beltrán Lázaro: ¿Y de qué cifra estamos hablando?
+[10:09:20] Víctor Salazar Prieto: La estimación son 320 horas, que a nuestra tarifa de 62,50 EUR/hora salen 20.000,00 EUR sin IVA.
+[10:10:17] Óscar Beltrán Lázaro: ¿20.000,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos.
+[10:11:29] Miriam Escudero Pardo: El equipo recomendado es 2 desarrolladores backend + 1 DevOps + 1 QA y la duración estimada 10-12 semanas.
+[10:11:55] Laura Cantero Hoyos: Nuestra fecha límite es la feria del sector. Si se pasa de ahí, pierde sentido.
+[10:12:35] Óscar Beltrán Lázaro: ¿Quién formaría al equipo interno cuando esto esté en marcha?
+[10:14:00] Óscar Beltrán Lázaro: Lo que no queremos es otro proyecto que se eternice. Eso ya nos pasó.
+[10:15:22] Víctor Salazar Prieto: Anotado. Os envío el acta y la propuesta formal a oscar.beltran@talleresbeltran.es esta misma tarde.
+[10:16:42] Óscar Beltrán Lázaro: Perfecto. Si hay cualquier urgencia, mi móvil directo es +34 947 44 37 12.
+[10:18:10] Víctor Salazar Prieto: Y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.

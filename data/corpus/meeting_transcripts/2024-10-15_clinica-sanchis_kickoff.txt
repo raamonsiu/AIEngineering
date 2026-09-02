@@ -1,0 +1,21 @@
+# Acta de reunión — Clínica Sanchís — 2024-10-15
+# Transcripción automática · Lidrai Soluciones Digitales S.L.
+
+[10:00:00] Nuria Bermejo Lastra: Buenos días y gracias por el tiempo. Soy Nuria Bermejo Lastra, de Lidrai Soluciones Digitales S.L., y me acompaña Álvaro Cifuentes Nieto, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de cuadro de mando analítico en tiempo real para Clínica Sanchís.
+[10:01:26] Elena Sanchís Mompó: Encantado. Yo soy Elena Sanchís Mompó y conmigo está Dr. Vicente Alabau Ferrer, de nuestro equipo de operaciones.
+[10:02:51] Elena Sanchís Mompó: Los informes de ventas los montamos a mano todos los lunes y llegan tarde. Necesitamos un cuadro de mando que se actualice solo.
+[10:04:17] Álvaro Cifuentes Nieto: ¿Dónde están los datos de ventas ahora mismo y con qué frecuencia cambian?
+[10:05:06] Dr. Vicente Alabau Ferrer: En PostgreSQL y en un par de ficheros de Google Sheets. Cambian a cada minuto en campaña.
+[10:06:11] Nuria Bermejo Lastra: Con eso, el alcance que planteamos se estructura en fases: Diseño del cuadro de mando, Desarrollo frontend, Integración de datos y APIs, Procesamiento en tiempo real, entre otras. La referencia interna del presupuesto es BUDGET-2024-0241.
+[10:07:39] Elena Sanchís Mompó: Necesitamos poder exportar todo a Excel, el comité financiero no va a cambiar de herramienta.
+[10:08:29] Elena Sanchís Mompó: ¿Y de qué cifra estamos hablando?
+[10:08:59] Nuria Bermejo Lastra: La estimación son 255 horas, que a nuestra tarifa de 62,50 EUR/hora salen 15.937,50 EUR sin IVA.
+[10:09:40] Elena Sanchís Mompó: ¿El mantenimiento posterior entra en el precio o se contrata aparte?
+[10:11:04] Elena Sanchís Mompó: ¿15.937,50 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos.
+[10:12:03] Álvaro Cifuentes Nieto: El equipo recomendado es 1 frontend + 1 backend + 1 ingeniero de datos y la duración estimada 8-10 semanas.
+[10:13:26] Dr. Vicente Alabau Ferrer: Nuestra fecha límite es la feria del sector. Si se pasa de ahí, pierde sentido.
+[10:14:17] Álvaro Cifuentes Nieto: El tratamiento de datos personales quedará conforme al RGPD, con registro de accesos.
+[10:15:45] Nuria Bermejo Lastra: Incluimos dos sesiones de formación y un manual de usuario en castellano.
+[10:17:19] Nuria Bermejo Lastra: Anotado. Os envío el acta y la propuesta formal a elena.sanchis@clinicasanchis.es esta misma tarde.
+[10:17:52] Elena Sanchís Mompó: Perfecto. Si hay cualquier urgencia, mi móvil directo es +34 961 33 48 27.
+[10:19:25] Nuria Bermejo Lastra: Y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.

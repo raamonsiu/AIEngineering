@@ -1,0 +1,51 @@
+{
+  "budget_id": "BUDGET-2024-0294",
+  "client_name": "ACME",
+  "client_code": "CLI-1001",
+  "project_type": "analytics_dashboard",
+  "total_amount": "56250",
+  "currency": "euros",
+  "hours_estimated": 900,
+  "signed_at": "2024-06-18",
+  "status": "signed",
+  "contact_email": "lucia.fernandez@acme-corp.es",
+  "contact_phone": "+34 915 44 20 18",
+  "account_manager": "Patricia Olmedo Rubio",
+  "phases": [
+    {
+      "name": "Diseño del cuadro de mando",
+      "hours": 126,
+      "cost_eur": 7875.0
+    },
+    {
+      "name": "Desarrollo frontend",
+      "hours": 198,
+      "cost_eur": 12375.0
+    },
+    {
+      "name": "Integración de datos y APIs",
+      "hours": 144,
+      "cost_eur": 9000.0
+    },
+    {
+      "name": "Procesamiento en tiempo real",
+      "hours": 171,
+      "cost_eur": 10687.5
+    },
+    {
+      "name": "Componentes de visualización",
+      "hours": 108,
+      "cost_eur": 6750.0
+    },
+    {
+      "name": "Optimización de base de datos",
+      "hours": 81,
+      "cost_eur": 5062.5
+    },
+    {
+      "name": "Pruebas y ajuste de rendimiento",
+      "hours": 72,
+      "cost_eur": 4500.0
+    }
+  ]
+}

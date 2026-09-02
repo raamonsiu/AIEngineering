@@ -1,0 +1,51 @@
+{
+  "budget_id": "BUDGET-2025-0094",
+  "client_name": "Farmacias Delgado",
+  "client_code": "CLI-1004",
+  "project_type": "mobile_ecommerce",
+  "total_amount": 17500.0,
+  "currency": "EUR",
+  "hours_estimated": 280,
+  "signed_at": "2025-07-16",
+  "status": "rejected",
+  "contact_email": "marta.delgado@farmaciasdelgado.es",
+  "contact_phone": "+34 954 02 76 33",
+  "account_manager": "Daniel Quintana Vega",
+  "phases": [
+    {
+      "name": "Diseño UI/UX móvil (iOS y Android)",
+      "hours": 70,
+      "cost_eur": 4375.0
+    },
+    {
+      "name": "Catálogo de producto y buscador",
+      "hours": 45,
+      "cost_eur": 2812.5
+    },
+    {
+      "name": "Carrito y proceso de compra",
+      "hours": 39,
+      "cost_eur": 2437.5
+    },
+    {
+      "name": "Integración de pasarela de pago",
+      "hours": 34,
+      "cost_eur": 2125.0
+    },
+    {
+      "name": "Gestión de pedidos",
+      "hours": 31,
+      "cost_eur": 1937.5
+    },
+    {
+      "name": "Autenticación y perfil de usuario",
+      "hours": 22,
+      "cost_eur": 1375.0
+    },
+    {
+      "name": "QA y publicación en stores",
+      "hours": 39,
+      "cost_eur": 2437.5
+    }
+  ]
+}

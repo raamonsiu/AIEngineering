@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2024-0233",
+  "client_name": "Farmacias Delgado",
+  "client_code": "CLI-1004",
+  "project_type": "crm",
+  "total_amount": 25625.0,
+  "currency": "EUR",
+  "hours_estimated": 410,
+  "signed_at": "2024-07-09",
+  "status": "draft",
+  "contact_email": "marta.delgado@farmaciasdelgado.es",
+  "contact_phone": "+34 954 02 76 33",
+  "account_manager": "Víctor Salazar Prieto",
+  "phases": [
+    {
+      "name": "Arquitectura y modelo de datos",
+      "hours": 29,
+      "cost_eur": 1812.5
+    },
+    {
+      "name": "Diseño UI/UX",
+      "hours": 49,
+      "cost_eur": 3062.5
+    },
+    {
+      "name": "Módulo de clientes",
+      "hours": 62,
+      "cost_eur": 3875.0
+    },
+    {
+      "name": "Pipeline comercial y leads",
+      "hours": 70,
+      "cost_eur": 4375.0
+    },
+    {
+      "name": "Herramientas de comunicación",
+      "hours": 49,
+      "cost_eur": 3062.5
+    },
+    {
+      "name": "Informes y analítica",
+      "hours": 41,
+      "cost_eur": 2562.5
+    },
+    {
+      "name": "Permisos y autenticación",
+      "hours": 29,
+      "cost_eur": 1812.5
+    },
+    {
+      "name": "Integraciones con terceros",
+      "hours": 37,
+      "cost_eur": 2312.5
+    },
+    {
+      "name": "Pruebas y QA",
+      "hours": 44,
+      "cost_eur": 2750.0
+    }
+  ]
+}

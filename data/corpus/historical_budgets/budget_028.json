@@ -1,0 +1,61 @@
+{
+  "budget_id": "BDG_2024_12",
+  "client_name": " ",
+  "client_code": "CLI-1005",
+  "project_type": "api_integration",
+  "total_amount": 16250.0,
+  "currency": "EUR",
+  "hours_estimated": 1480000,
+  "signed_at": "2031-07-14",
+  "status": "draft",
+  "contact_email": "andres@bodegasvillanueva.es",
+  "contact_phone": "+34 941 60 18 94",
+  "account_manager": "Irene Castaño Abad",
+  "phases": [
+    {
+      "name": "Arquitectura y planificación",
+      "hours": 21,
+      "cost_eur": 1312.5
+    },
+    {
+      "name": "Integración de APIs de terceros",
+      "hours": 65,
+      "cost_eur": 4062.5
+    },
+    {
+      "name": "Motor de sincronización de datos",
+      "hours": 42,
+      "cost_eur": 2625.0
+    },
+    {
+      "name": "Gestor de webhooks",
+      "hours": 29,
+      "cost_eur": 1812.5
+    },
+    {
+      "name": "Control de errores y reintentos",
+      "hours": 23,
+      "cost_eur": 1437.5
+    },
+    {
+      "name": "Logging y monitorización",
+      "hours": 21,
+      "cost_eur": 1312.5
+    },
+    {
+      "name": "Rate limiting",
+      "hours": 16,
+      "cost_eur": 1000.0
+    },
+    {
+      "name": "Documentación técnica",
+      "hours": 16,
+      "cost_eur": 1000.0
+    },
+    {
+      "name": "Pruebas de carga",
+      "hours": 27,
+      "cost_eur": 1687.5
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "budget_id": "BUDGET-2023-0042",
+  "client_name": "Distribuciones Arroyo",
+  "client_code": "CLI-1008",
+  "project_type": "analytics_dashboard",
+  "total_amount": 15937.5,
+  "currency": "EUR",
+  "hours_estimated": 255,
+  "signed_at": "2023-09-18",
+  "status": "signed",
+  "contact_email": "noelia.arroyo@distribucionesarroyo.com",
+  "contact_phone": "+34 983 15 62 70",
+  "account_manager": "Patricia Olmedo Rubio",
+  "phases": [
+    {
+      "name": "Diseño del cuadro de mando",
+      "hours": 36,
+      "cost_eur": 2250.0
+    },
+    {
+      "name": "Desarrollo frontend",
+      "hours": 56,
+      "cost_eur": 3500.0
+    },
+    {
+      "name": "Integración de datos y APIs",
+      "hours": 41,
+      "cost_eur": 2562.5
+    },
+    {
+      "name": "Procesamiento en tiempo real",
+      "hours": 48,
+      "cost_eur": 3000.0
+    },
+    {
+      "name": "Componentes de visualización",
+      "hours": 31,
+      "cost_eur": 1937.5
+    },
+    {
+      "name": "Optimización de base de datos",
+      "hours": 23,
+      "cost_eur": 1437.5
+    },
+    {
+      "name": "Pruebas y ajuste de rendimiento",
+      "hours": 20,
+      "cost_eur": 1250.0
+    }
+  ]
+}

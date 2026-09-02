@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2025-0119",
+  "client_name": "Clínica Sanchís",
+  "client_code": "CLI-1006",
+  "project_type": "api_integration",
+  "total_amount": 13750.0,
+  "currency": "EUR",
+  "hours_estimated": 220,
+  "signed_at": "2025-09-10",
+  "status": "draft",
+  "contact_email": "elena.sanchis@clinicasanchis.es",
+  "contact_phone": "+34 961 33 48 27",
+  "account_manager": "Víctor Salazar Prieto",
+  "phases": [
+    {
+      "name": "Arquitectura y planificación",
+      "hours": 18,
+      "cost_eur": 1125.0
+    },
+    {
+      "name": "Integración de APIs de terceros",
+      "hours": 55,
+      "cost_eur": 3437.5
+    },
+    {
+      "name": "Motor de sincronización de datos",
+      "hours": 35,
+      "cost_eur": 2187.5
+    },
+    {
+      "name": "Gestor de webhooks",
+      "hours": 24,
+      "cost_eur": 1500.0
+    },
+    {
+      "name": "Control de errores y reintentos",
+      "hours": 20,
+      "cost_eur": 1250.0
+    },
+    {
+      "name": "Logging y monitorización",
+      "hours": 18,
+      "cost_eur": 1125.0
+    },
+    {
+      "name": "Rate limiting",
+      "hours": 13,
+      "cost_eur": 812.5
+    },
+    {
+      "name": "Documentación técnica",
+      "hours": 13,
+      "cost_eur": 812.5
+    },
+    {
+      "name": "Pruebas de carga",
+      "hours": 24,
+      "cost_eur": 1500.0
+    }
+  ]
+}

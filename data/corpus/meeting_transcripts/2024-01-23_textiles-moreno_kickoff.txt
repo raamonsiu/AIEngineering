@@ -1,0 +1,21 @@
+# Acta de reunión — Textiles Moreno S.L. — 2024-01-23
+# Transcripción automática · Lidrai Soluciones Digitales S.L.
+
+[10:00:00] Nuria Bermejo Lastra: Buenos días y gracias por el tiempo. Soy Nuria Bermejo Lastra, de Lidrai Soluciones Digitales S.L., y me acompaña Álvaro Cifuentes Nieto, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de aplicación móvil de comercio electrónico para Textiles Moreno S.L..
+[10:00:40] Javier Moreno Ibáñez: Encantado. Yo soy Javier Moreno Ibáñez y conmigo está Rocío Benavent Gil, de nuestro equipo de administración.
+[10:01:19] Javier Moreno Ibáñez: Hoy vendemos por teléfono y por WhatsApp. Queremos una app propia con catálogo, carrito y pago, en iOS y en Android, sin depender de un marketplace.
+[10:02:22] Álvaro Cifuentes Nieto: ¿Con qué pasarela de pago trabajáis y qué catálogo tenéis ya digitalizado?
+[10:03:42] Rocío Benavent Gil: Redsys para la tienda física y estamos abiertos a Stripe. El catálogo está en PrestaShop.
+[10:04:57] Nuria Bermejo Lastra: Con eso, el alcance que planteamos se estructura en fases: Diseño UI/UX móvil (iOS y Android), Catálogo de producto y buscador, Carrito y proceso de compra, Integración de pasarela de pago, entre otras. La referencia interna del presupuesto es BUDGET-2024-0117.
+[10:05:31] Javier Moreno Ibáñez: ¿Y de qué cifra estamos hablando?
+[10:06:51] Nuria Bermejo Lastra: La estimación son 320 horas, que a nuestra tarifa de 62,50 EUR/hora salen 20.000,00 EUR sin IVA.
+[10:08:09] Álvaro Cifuentes Nieto: Para la migración inicial necesitaremos un volcado de datos de prueba cuanto antes.
+[10:09:31] Javier Moreno Ibáñez: ¿Quién formaría al equipo interno cuando esto esté en marcha?
+[10:10:08] Javier Moreno Ibáñez: ¿20.000,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos.
+[10:10:55] Nuria Bermejo Lastra: El mantenimiento correctivo de los tres primeros meses va incluido; el evolutivo se contrata por bolsa de horas.
+[10:11:35] Javier Moreno Ibáñez: Necesitamos poder exportar todo a Excel, el comité financiero no va a cambiar de herramienta.
+[10:12:23] Álvaro Cifuentes Nieto: El equipo recomendado es 2 desarrolladores móviles (iOS y Android) + 1 backend + 1 QA y la duración estimada 10-12 semanas.
+[10:13:04] Rocío Benavent Gil: Nuestra fecha límite es la campaña de primavera. Si se pasa de ahí, pierde sentido.
+[10:13:58] Nuria Bermejo Lastra: Anotado. Os envío el acta y la propuesta formal a javier.moreno@textilesmoreno.es esta misma tarde.
+[10:15:25] Javier Moreno Ibáñez: Perfecto. Si hay cualquier urgencia, mi móvil directo es +34 963 87 11 02.
+[10:15:55] Nuria Bermejo Lastra: Y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.

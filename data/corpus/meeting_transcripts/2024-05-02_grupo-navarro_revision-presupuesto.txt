@@ -1,0 +1,24 @@
+# Acta de reunión — Grupo Navarro Logística — 2024-05-02
+# Transcripción automática · Lidrai Soluciones Digitales S.L.
+
+[10:00:00] Daniel Quintana Vega: Buenos días y gracias por el tiempo. Soy Daniel Quintana Vega, de Lidrai Soluciones Digitales S.L., y me acompaña Álvaro Cifuentes Nieto, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de plataforma de gestión de inventario para Grupo Navarro Logística.
+[10:01:16] Sergio Navarro Puig: Encantado. Yo soy Sergio Navarro Puig y conmigo está Alicia Used Mainar, de nuestro equipo de operaciones.
+[10:02:30] Sergio Navarro Puig: Ahora mismo el stock vive en tres hojas de cálculo distintas, una por almacén, y nadie sabe qué hay realmente hasta que alguien baja a contarlo.
+[10:03:38] Álvaro Cifuentes Nieto: ¿Qué ERP tenéis detrás y cómo se consultan hoy las existencias?
+[10:04:33] Alicia Used Mainar: Un Sage antiguo, con acceso por ODBC. Las existencias se exportan a CSV cada noche.
+[10:05:47] Sergio Navarro Puig: Lo que no queremos es otro proyecto que se eternice. Eso ya nos pasó.
+[10:07:15] Daniel Quintana Vega: Con eso, el alcance que planteamos se estructura en fases: Diseño UI/UX, Backend y API de inventario, Autenticación y roles, Cuadro de mando y reporting, entre otras. La referencia interna del presupuesto es BUDGET-2024-0312.
+[10:08:44] Álvaro Cifuentes Nieto: Proponemos entornos separados de desarrollo, preproducción y producción desde el primer sprint.
+[10:10:19] Sergio Navarro Puig: ¿El mantenimiento posterior entra en el precio o se contrata aparte?
+[10:10:53] Sergio Navarro Puig: ¿Y de qué cifra estamos hablando?
+[10:11:56] Daniel Quintana Vega: La estimación son 840 horas, que a nuestra tarifa de 62,50 EUR/hora salen 52.500,00 EUR sin IVA.
+[10:13:18] Sergio Navarro Puig: ¿52.500,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos.
+[10:13:59] Álvaro Cifuentes Nieto: El equipo recomendado es 2 desarrolladores full-stack + 1 diseñador UX a tiempo parcial y la duración estimada 6-8 semanas.
+[10:14:46] Alicia Used Mainar: Nuestra fecha límite es la campaña de primavera. Si se pasa de ahí, pierde sentido.
+[10:15:49] Daniel Quintana Vega: Incluimos dos sesiones de formación y un manual de usuario en castellano.
+[10:16:56] Daniel Quintana Vega: Anotado. Os envío el acta y la propuesta formal a s.navarro@gruponavarro.com esta misma tarde.
+[10:18:09] Daniel Quintana Vega: Recapitulando el presupuesto BUDGET-2024-0312: la versión que firmasteis el 12/03/2024 iba por 48.750,00 € y la revisión de hoy, 02/05/2024, queda en 52.500,00 €.
+[10:19:22] Sergio Navarro Puig: Es decir, cincuenta y dos mil quinientos euros. Que conste que yo tenía apuntado 52500 EUR desde la reunión del 2 de mayo.
+[10:19:57] Daniel Quintana Vega: Correcto. Mantenemos el mismo identificador de presupuesto, BUDGET-2024-0312, para no abrir otro expediente.
+[10:21:13] Sergio Navarro Puig: Perfecto. Si hay cualquier urgencia, mi móvil directo es +34 976 23 55 41.
+[10:22:42] Daniel Quintana Vega: Y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.

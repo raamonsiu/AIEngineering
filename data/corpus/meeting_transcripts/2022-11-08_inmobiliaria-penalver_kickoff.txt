@@ -1,0 +1,27 @@
+ACTA DE REUNION - INMOBILIARIA PEÑALVER - 2022-11-08
+
+Lidrai Soluciones Digitales S.L.   Asistentes y notas tomadas a mano, sin grabacion.
+
+Patricia recuerda que buenos días y gracias por el tiempo. Soy Patricia Olmedo Rubio, de Lidrai Soluciones Digitales S.L., y me acompaña Miriam Escudero Pardo, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de sistema CRM para Inmobiliaria Peñalver. Rubén insiste en que encantado. Yo soy Rubén Peñalver Gil y conmigo está Sandra Quirós Maldonado, de nuestro equipo de operaciones. Rubén insiste en que los contactos están repartidos entre Outlook y un Excel compartido. Perdemos oportunidades por pura desorganización, no por falta de clientes.
+
+
+
+Miriam añade que ¿qué volumen de contactos manejáis y qué necesitáis integrar con el correo? Sandra añade que unos 14.000 contactos y el correo corporativo es Microsoft 365, eso es innegociable.
+
+
+
+Patricia recuerda que con eso, el alcance que planteamos se estructura en fases: Arquitectura y modelo de datos, Diseño UI/UX, Módulo de clientes, Pipeline comercial y leads, entre otras. La referencia interna del presupuesto es BUDGET-2022-0131. Rubén apunta que ¿quién formaría al equipo interno cuando esto esté en marcha? Rubén comenta que ¿y de qué cifra estamos hablando?
+
+Patricia añade que la estimación son 380 horas, que a nuestra tarifa de 62,50 EUR/hora salen 23.750,00 EUR sin IVA. Rubén recuerda que ¿23.750,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos.
+
+
+Miriam insiste en que el tratamiento de datos personales quedará conforme al RGPD, con registro de accesos. Miriam insiste en que el equipo recomendado es 3 full-stack + 1 arquitecto de datos + 1 diseñador UI/UX + 1 QA y la duración estimada 12-14 semanas.
+
+
+Patricia comenta que el mantenimiento correctivo de los tres primeros meses va incluido; el evolutivo se contrata por bolsa de horas. Sandra añade que nuestra fecha límite es la campaña de primavera. Si se pasa de ahí, pierde sentido. Miriam insiste en que proponemos entornos separados de desarrollo, preproducción y producción desde el primer sprint.
+
+
+Patricia añade que anotado. Os envío el acta y la propuesta formal a ruben.penalver@penalver-inmo.es esta misma tarde. Rubén recuerda que perfecto.  Si hay cualquier urgencia, mi móvil directo es +34 952 71 09 65. Patricia apunta que y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es.  Cerramos aquí.
+
+
+Pendiente de confirmar presupuesto y calendario.   Se enviara propuesta por correo.

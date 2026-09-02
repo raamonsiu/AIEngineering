@@ -1,0 +1,51 @@
+{
+  "budget_id": "BUDGET-2025-0126",
+  "client_name": "Inmobiliaria Peñalver",
+  "client_code": "CLI-1007",
+  "project_type": "analytics_dashboard",
+  "total_amount": 12500.0,
+  "currency": "EUR",
+  "hours_estimated": 200,
+  "signed_at": "2025-10-02",
+  "status": "draft",
+  "contact_email": "ruben.penalver@penalver-inmo.es",
+  "contact_phone": "+34 952 71 09 65",
+  "account_manager": "Nuria Bermejo Lastra",
+  "phases": [
+    {
+      "name": "Diseño del cuadro de mando",
+      "hours": 28,
+      "cost_eur": 1750.0
+    },
+    {
+      "name": "Desarrollo frontend",
+      "hours": 44,
+      "cost_eur": 2750.0
+    },
+    {
+      "name": "Integración de datos y APIs",
+      "hours": 32,
+      "cost_eur": 2000.0
+    },
+    {
+      "name": "Procesamiento en tiempo real",
+      "hours": 38,
+      "cost_eur": 2375.0
+    },
+    {
+      "name": "Componentes de visualización",
+      "hours": 24,
+      "cost_eur": 1500.0
+    },
+    {
+      "name": "Optimización de base de datos",
+      "hours": 18,
+      "cost_eur": 1125.0
+    },
+    {
+      "name": "Pruebas y ajuste de rendimiento",
+      "hours": 16,
+      "cost_eur": 1000.0
+    }
+  ]
+}

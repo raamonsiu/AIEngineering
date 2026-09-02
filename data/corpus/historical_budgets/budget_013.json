@@ -1,0 +1,41 @@
+{
+  "budget_id": "BUDGET-2025-0103",
+  "client_name": "Distribuciones Arroyo",
+  "client_code": "CLI-1008",
+  "project_type": "inventory_platform",
+  "total_amount": 21250.0,
+  "currency": "EUR",
+  "hours_estimated": 340,
+  "signed_at": "2025-08-05",
+  "status": "signed",
+  "contact_email": "noelia.arroyo@distribucionesarroyo.com",
+  "contact_phone": "+34 983 15 62 70",
+  "account_manager": "Irene Castaño Abad",
+  "phases": [
+    {
+      "name": "Diseño UI/UX",
+      "hours": 78,
+      "cost_eur": 4875.0
+    },
+    {
+      "name": "Backend y API de inventario",
+      "hours": 116,
+      "cost_eur": 7250.0
+    },
+    {
+      "name": "Autenticación y roles",
+      "hours": 37,
+      "cost_eur": 2312.5
+    },
+    {
+      "name": "Cuadro de mando y reporting",
+      "hours": 58,
+      "cost_eur": 3625.0
+    },
+    {
+      "name": "Pruebas y QA",
+      "hours": 51,
+      "cost_eur": 3187.5
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2025-0147",
+  "client_name": "N/A",
+  "client_code": "CLI-1004",
+  "project_type": "crm",
+  "total_amount": -18750.0,
+  "currency": "EUR",
+  "hours_estimated": 300,
+  "signed_at": "2025-01-15",
+  "status": "draft",
+  "contact_email": "unknown",
+  "contact_phone": "+34 954 02 76 33",
+  "account_manager": "TBD",
+  "phases": [
+    {
+      "name": "Arquitectura y modelo de datos",
+      "hours": 21,
+      "cost_eur": 1312.5
+    },
+    {
+      "name": "Diseño UI/UX",
+      "hours": 36,
+      "cost_eur": 2250.0
+    },
+    {
+      "name": "Módulo de clientes",
+      "hours": 45,
+      "cost_eur": 2812.5
+    },
+    {
+      "name": "Pipeline comercial y leads",
+      "hours": 51,
+      "cost_eur": 3187.5
+    },
+    {
+      "name": "Herramientas de comunicación",
+      "hours": 36,
+      "cost_eur": 2250.0
+    },
+    {
+      "name": "Informes y analítica",
+      "hours": 30,
+      "cost_eur": 1875.0
+    },
+    {
+      "name": "Permisos y autenticación",
+      "hours": 21,
+      "cost_eur": 1312.5
+    },
+    {
+      "name": "Integraciones con terceros",
+      "hours": 27,
+      "cost_eur": 1687.5
+    },
+    {
+      "name": "Pruebas y QA",
+      "hours": 33,
+      "cost_eur": 2062.5
+    }
+  ]
+}

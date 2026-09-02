@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2025-0014",
+  "client_name": "Bodegas Villanueva",
+  "client_code": "CLI-1005",
+  "project_type": "cms",
+  "total_amount": 20000.0,
+  "currency": "EUR",
+  "hours_estimated": 320,
+  "signed_at": "2025-02-18",
+  "status": "signed",
+  "contact_email": "andres@bodegasvillanueva.es",
+  "contact_phone": "+34 941 60 18 94",
+  "account_manager": "Daniel Quintana Vega",
+  "phases": [
+    {
+      "name": "Arquitectura del CMS",
+      "hours": 35,
+      "cost_eur": 2187.5
+    },
+    {
+      "name": "Panel de administración",
+      "hours": 54,
+      "cost_eur": 3375.0
+    },
+    {
+      "name": "Editor de contenidos enriquecido",
+      "hours": 51,
+      "cost_eur": 3187.5
+    },
+    {
+      "name": "Usuarios y permisos",
+      "hours": 29,
+      "cost_eur": 1812.5
+    },
+    {
+      "name": "Biblioteca multimedia",
+      "hours": 35,
+      "cost_eur": 2187.5
+    },
+    {
+      "name": "Programación de publicaciones",
+      "hours": 26,
+      "cost_eur": 1625.0
+    },
+    {
+      "name": "Herramientas SEO",
+      "hours": 19,
+      "cost_eur": 1187.5
+    },
+    {
+      "name": "Sistema de plantillas",
+      "hours": 42,
+      "cost_eur": 2625.0
+    },
+    {
+      "name": "Pruebas y documentación",
+      "hours": 29,
+      "cost_eur": 1812.5
+    }
+  ]
+}

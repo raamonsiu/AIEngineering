@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2024-0288",
+  "client_name": "acme corp",
+  "client_code": "cli-1001",
+  "project_type": "crm",
+  "total_amount": "80.000,00",
+  "currency": "€",
+  "hours_estimated": 1280,
+  "signed_at": "Mar 15 2024",
+  "status": "signed",
+  "contact_email": "lucia.fernandez@acme-corp.es",
+  "contact_phone": "+34 915 44 20 18",
+  "account_manager": "Nuria Bermejo Lastra",
+  "phases": [
+    {
+      "name": "Arquitectura y modelo de datos",
+      "hours": 90,
+      "cost_eur": 5625.0
+    },
+    {
+      "name": "Diseño UI/UX",
+      "hours": 154,
+      "cost_eur": 9625.0
+    },
+    {
+      "name": "Módulo de clientes",
+      "hours": 192,
+      "cost_eur": 12000.0
+    },
+    {
+      "name": "Pipeline comercial y leads",
+      "hours": 218,
+      "cost_eur": 13625.0
+    },
+    {
+      "name": "Herramientas de comunicación",
+      "hours": 154,
+      "cost_eur": 9625.0
+    },
+    {
+      "name": "Informes y analítica",
+      "hours": 128,
+      "cost_eur": 8000.0
+    },
+    {
+      "name": "Permisos y autenticación",
+      "hours": 90,
+      "cost_eur": 5625.0
+    },
+    {
+      "name": "Integraciones con terceros",
+      "hours": 115,
+      "cost_eur": 7187.5
+    },
+    {
+      "name": "Pruebas y QA",
+      "hours": 139,
+      "cost_eur": 8687.5
+    }
+  ]
+}

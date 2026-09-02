@@ -14,3 +14,7 @@ wheels/
 # Stress-suite attachment corpus: regenerated deterministically by
 # evals/stress/fixtures/build_pdfs.py, so it does not belong in git.
 evals/stress/fixtures/*.pdf
+
+# Pseudonym mapping table: itself personal data under GDPR (it is the
+# link between a real person and their pseudonym). Never ships with the repo.
+data/.pseudonyms.json

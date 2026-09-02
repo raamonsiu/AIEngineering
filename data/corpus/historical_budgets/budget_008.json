@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2025-0031",
+  "client_name": "Talleres Beltrán",
+  "client_code": "CLI-1010",
+  "project_type": "api_integration",
+  "total_amount": 20000.0,
+  "currency": "EUR",
+  "hours_estimated": 320,
+  "signed_at": "2025-06-04",
+  "status": "draft",
+  "contact_email": "oscar.beltran@talleresbeltran.es",
+  "contact_phone": "+34 947 44 37 12",
+  "account_manager": "Irene Castaño Abad",
+  "phases": [
+    {
+      "name": "Arquitectura y planificación",
+      "hours": 26,
+      "cost_eur": 1625.0
+    },
+    {
+      "name": "Integración de APIs de terceros",
+      "hours": 80,
+      "cost_eur": 5000.0
+    },
+    {
+      "name": "Motor de sincronización de datos",
+      "hours": 51,
+      "cost_eur": 3187.5
+    },
+    {
+      "name": "Gestor de webhooks",
+      "hours": 35,
+      "cost_eur": 2187.5
+    },
+    {
+      "name": "Control de errores y reintentos",
+      "hours": 29,
+      "cost_eur": 1812.5
+    },
+    {
+      "name": "Logging y monitorización",
+      "hours": 26,
+      "cost_eur": 1625.0
+    },
+    {
+      "name": "Rate limiting",
+      "hours": 19,
+      "cost_eur": 1187.5
+    },
+    {
+      "name": "Documentación técnica",
+      "hours": 19,
+      "cost_eur": 1187.5
+    },
+    {
+      "name": "Pruebas de carga",
+      "hours": 35,
+      "cost_eur": 2187.5
+    }
+  ]
+}

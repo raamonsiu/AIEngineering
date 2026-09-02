@@ -1,0 +1,21 @@
+# Acta de reunión — Grupo Navarro Logística — 2024-03-12
+# Transcripción automática · Lidrai Soluciones Digitales S.L.
+
+[10:00:00] Irene Castaño Abad: Buenos días y gracias por el tiempo. Soy Irene Castaño Abad, de Lidrai Soluciones Digitales S.L., y me acompaña Álvaro Cifuentes Nieto, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de plataforma de gestión de inventario para Grupo Navarro Logística.
+[10:01:32] Sergio Navarro Puig: Encantado. Yo soy Sergio Navarro Puig y conmigo está Alicia Used Mainar, de nuestro equipo de sistemas.
+[10:01:57] Sergio Navarro Puig: Ahora mismo el stock vive en tres hojas de cálculo distintas, una por almacén, y nadie sabe qué hay realmente hasta que alguien baja a contarlo.
+[10:03:19] Álvaro Cifuentes Nieto: ¿Qué ERP tenéis detrás y cómo se consultan hoy las existencias?
+[10:04:43] Alicia Used Mainar: Un Sage antiguo, con acceso por ODBC. Las existencias se exportan a CSV cada noche.
+[10:05:58] Irene Castaño Abad: Con eso, el alcance que planteamos se estructura en fases: Diseño UI/UX, Backend y API de inventario, Autenticación y roles, Cuadro de mando y reporting, entre otras. La referencia interna del presupuesto es BUDGET-2024-0312.
+[10:07:30] Sergio Navarro Puig: ¿Y de qué cifra estamos hablando?
+[10:08:28] Álvaro Cifuentes Nieto: Para la migración inicial necesitaremos un volcado de datos de prueba cuanto antes.
+[10:09:59] Irene Castaño Abad: La estimación son 780 horas, que a nuestra tarifa de 62,50 EUR/hora salen 48.750,00 EUR sin IVA.
+[10:10:49] Sergio Navarro Puig: ¿Quién formaría al equipo interno cuando esto esté en marcha?
+[10:11:45] Sergio Navarro Puig: ¿48.750,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos.
+[10:13:12] Irene Castaño Abad: Incluimos dos sesiones de formación y un manual de usuario en castellano.
+[10:13:43] Irene Castaño Abad: Haremos una demo cada dos semanas para que no haya sorpresas al final.
+[10:14:37] Álvaro Cifuentes Nieto: El equipo recomendado es 2 desarrolladores full-stack + 1 diseñador UX a tiempo parcial y la duración estimada 6-8 semanas.
+[10:16:04] Alicia Used Mainar: Nuestra fecha límite es la feria del sector. Si se pasa de ahí, pierde sentido.
+[10:16:44] Irene Castaño Abad: Anotado. Os envío el acta y la propuesta formal a s.navarro@gruponavarro.com esta misma tarde.
+[10:17:22] Sergio Navarro Puig: Perfecto. Si hay cualquier urgencia, mi móvil directo es +34 976 23 55 41.
+[10:18:49] Irene Castaño Abad: Y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.

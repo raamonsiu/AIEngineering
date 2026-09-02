@@ -1,0 +1,24 @@
+ACTA DE REUNION - ACME CORP. - 2022-04-19
+
+Lidrai Soluciones Digitales S.L.   Asistentes y notas tomadas a mano, sin grabacion.
+
+Irene añade que buenos días y gracias por el tiempo. Soy Irene Castaño Abad, de Lidrai Soluciones Digitales S.L., y me acompaña Álvaro Cifuentes Nieto, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de plataforma de gestión de inventario para ACME Corp.. Lucía apunta que encantado. Yo soy Lucía Fernández Arriaga y conmigo está Tomás Iriarte Blanco, de nuestro equipo de operaciones. Lucía añade que ahora mismo el stock vive en tres hojas de cálculo distintas, una por almacén, y nadie sabe qué hay realmente hasta que alguien baja a contarlo.
+
+
+
+Álvaro insiste en que ¿qué ERP tenéis detrás y cómo se consultan hoy las existencias? Irene comenta que haremos una demo cada dos semanas para que no haya sorpresas al final. Lucía apunta que ¿quién formaría al equipo interno cuando esto esté en marcha?
+
+
+
+Tomás insiste en que un Sage antiguo, con acceso por ODBC.  Las existencias se exportan a CSV cada noche. Irene recuerda que con eso, el alcance que planteamos se estructura en fases: Diseño UI/UX, Backend y API de inventario, Autenticación y roles, Cuadro de mando y reporting, entre otras. La referencia interna del presupuesto es BUDGET-2022-0077. Irene insiste en que el mantenimiento correctivo de los tres primeros meses va incluido; el evolutivo se contrata por bolsa de horas. Lucía insiste en que ¿y de qué cifra estamos hablando?
+
+Irene apunta que la estimación son 420 horas, que a nuestra tarifa de 62,50 EUR/hora salen 26.250,00 EUR sin IVA. Lucía explica que lo que no queremos es otro proyecto que se eternice.  Eso ya nos pasó. Lucía insiste en que ¿26.250,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos. Álvaro recuerda que para la migración inicial necesitaremos un volcado de datos de prueba cuanto antes.
+
+
+
+Álvaro explica que el equipo recomendado es 2 desarrolladores full-stack + 1 diseñador UX a tiempo parcial y la duración estimada 6-8 semanas. Lucía comenta que necesitamos poder exportar todo a Excel, el comité financiero no va a cambiar de herramienta. Tomás comenta que nuestra fecha límite es el cierre de ejercicio. Si se pasa de ahí, pierde sentido.
+
+
+Irene insiste en que anotado. Os envío el acta y la propuesta formal a lucia.fernandez@acme-corp.es esta misma tarde. Lucía comenta que perfecto.  Si hay cualquier urgencia, mi móvil directo es +34 915 44 20 18. Irene explica que y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.
+
+Pendiente de confirmar presupuesto y calendario.   Se enviara propuesta por correo.

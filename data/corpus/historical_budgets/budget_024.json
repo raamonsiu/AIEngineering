@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2023-0188",
+  "client_name": "Editorial Marimón",
+  "client_code": "CLI-1009",
+  "project_type": "cms",
+  "total_amount": 31250.0,
+  "currency": "EUR",
+  "hours_estimated": 500,
+  "signed_at": "2023-06-04",
+  "status": "signed",
+  "contact_email": "pau.marimon@editorialmarimon.cat",
+  "contact_phone": "+34 934 28 90 56",
+  "account_manager": "Víctor Salazar Prieto",
+  "phases": [
+    {
+      "name": "Arquitectura del CMS",
+      "hours": 55,
+      "cost_eur": 3437.5
+    },
+    {
+      "name": "Panel de administración",
+      "hours": 85,
+      "cost_eur": 5312.5
+    },
+    {
+      "name": "Editor de contenidos enriquecido",
+      "hours": 80,
+      "cost_eur": 5000.0
+    },
+    {
+      "name": "Usuarios y permisos",
+      "hours": 45,
+      "cost_eur": 2812.5
+    },
+    {
+      "name": "Biblioteca multimedia",
+      "hours": 55,
+      "cost_eur": 3437.5
+    },
+    {
+      "name": "Programación de publicaciones",
+      "hours": 40,
+      "cost_eur": 2500.0
+    },
+    {
+      "name": "Herramientas SEO",
+      "hours": 30,
+      "cost_eur": 1875.0
+    },
+    {
+      "name": "Sistema de plantillas",
+      "hours": 65,
+      "cost_eur": 4062.5
+    },
+    {
+      "name": "Pruebas y documentación",
+      "hours": 45,
+      "cost_eur": 2812.5
+    }
+  ]
+}

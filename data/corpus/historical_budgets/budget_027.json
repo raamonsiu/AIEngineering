@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2025-0158",
+  "client_name": "-",
+  "client_code": "CLI-1007",
+  "project_type": "cms",
+  "total_amount": 99000000,
+  "currency": "EUR",
+  "hours_estimated": 240,
+  "signed_at": "2025-02-20",
+  "status": "draft",
+  "contact_email": "",
+  "contact_phone": "+34 952 71 09 65",
+  "account_manager": "pendiente",
+  "phases": [
+    {
+      "name": "Arquitectura del CMS",
+      "hours": 26,
+      "cost_eur": 1625.0
+    },
+    {
+      "name": "Panel de administración",
+      "hours": 41,
+      "cost_eur": 2562.5
+    },
+    {
+      "name": "Editor de contenidos enriquecido",
+      "hours": 38,
+      "cost_eur": 2375.0
+    },
+    {
+      "name": "Usuarios y permisos",
+      "hours": 22,
+      "cost_eur": 1375.0
+    },
+    {
+      "name": "Biblioteca multimedia",
+      "hours": 26,
+      "cost_eur": 1625.0
+    },
+    {
+      "name": "Programación de publicaciones",
+      "hours": 19,
+      "cost_eur": 1187.5
+    },
+    {
+      "name": "Herramientas SEO",
+      "hours": 14,
+      "cost_eur": 875.0
+    },
+    {
+      "name": "Sistema de plantillas",
+      "hours": 31,
+      "cost_eur": 1937.5
+    },
+    {
+      "name": "Pruebas y documentación",
+      "hours": 23,
+      "cost_eur": 1437.5
+    }
+  ]
+}

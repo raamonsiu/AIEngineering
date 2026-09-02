@@ -1,0 +1,51 @@
+{
+  "budget_id": "BUDGET-2025-0055",
+  "client_name": "Grupo Navarro Logística",
+  "client_code": "CLI-1003",
+  "project_type": "analytics_dashboard",
+  "total_amount": 11250.0,
+  "currency": "EUR",
+  "hours_estimated": 180,
+  "signed_at": "2025-03-07",
+  "status": "rejected",
+  "contact_email": "s.navarro@gruponavarro.com",
+  "contact_phone": "+34 976 23 55 41",
+  "account_manager": "Víctor Salazar Prieto",
+  "phases": [
+    {
+      "name": "Diseño del cuadro de mando",
+      "hours": 25,
+      "cost_eur": 1562.5
+    },
+    {
+      "name": "Desarrollo frontend",
+      "hours": 40,
+      "cost_eur": 2500.0
+    },
+    {
+      "name": "Integración de datos y APIs",
+      "hours": 29,
+      "cost_eur": 1812.5
+    },
+    {
+      "name": "Procesamiento en tiempo real",
+      "hours": 34,
+      "cost_eur": 2125.0
+    },
+    {
+      "name": "Componentes de visualización",
+      "hours": 22,
+      "cost_eur": 1375.0
+    },
+    {
+      "name": "Optimización de base de datos",
+      "hours": 16,
+      "cost_eur": 1000.0
+    },
+    {
+      "name": "Pruebas y ajuste de rendimiento",
+      "hours": 14,
+      "cost_eur": 875.0
+    }
+  ]
+}

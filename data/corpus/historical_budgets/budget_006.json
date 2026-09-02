@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2024-0260",
+  "client_name": "Inmobiliaria Peñalver",
+  "client_code": "CLI-1007",
+  "project_type": "cms",
+  "total_amount": 18750.0,
+  "currency": "EUR",
+  "hours_estimated": 300,
+  "signed_at": "2024-04-11",
+  "status": "rejected",
+  "contact_email": "ruben.penalver@penalver-inmo.es",
+  "contact_phone": "+34 952 71 09 65",
+  "account_manager": "Patricia Olmedo Rubio",
+  "phases": [
+    {
+      "name": "Arquitectura del CMS",
+      "hours": 33,
+      "cost_eur": 2062.5
+    },
+    {
+      "name": "Panel de administración",
+      "hours": 51,
+      "cost_eur": 3187.5
+    },
+    {
+      "name": "Editor de contenidos enriquecido",
+      "hours": 48,
+      "cost_eur": 3000.0
+    },
+    {
+      "name": "Usuarios y permisos",
+      "hours": 27,
+      "cost_eur": 1687.5
+    },
+    {
+      "name": "Biblioteca multimedia",
+      "hours": 33,
+      "cost_eur": 2062.5
+    },
+    {
+      "name": "Programación de publicaciones",
+      "hours": 24,
+      "cost_eur": 1500.0
+    },
+    {
+      "name": "Herramientas SEO",
+      "hours": 18,
+      "cost_eur": 1125.0
+    },
+    {
+      "name": "Sistema de plantillas",
+      "hours": 39,
+      "cost_eur": 2437.5
+    },
+    {
+      "name": "Pruebas y documentación",
+      "hours": 27,
+      "cost_eur": 1687.5
+    }
+  ]
+}

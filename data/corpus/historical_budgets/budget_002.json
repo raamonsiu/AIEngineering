@@ -1,0 +1,51 @@
+{
+  "budget_id": "BUDGET-2024-0117",
+  "client_name": "Textiles Moreno S.L.",
+  "client_code": "CLI-1002",
+  "project_type": "mobile_ecommerce",
+  "total_amount": 20000.0,
+  "currency": "EUR",
+  "hours_estimated": 320,
+  "signed_at": "2024-01-23",
+  "status": "signed",
+  "contact_email": "javier.moreno@textilesmoreno.es",
+  "contact_phone": "+34 963 87 11 02",
+  "account_manager": "Daniel Quintana Vega",
+  "phases": [
+    {
+      "name": "Diseño UI/UX móvil (iOS y Android)",
+      "hours": 80,
+      "cost_eur": 5000.0
+    },
+    {
+      "name": "Catálogo de producto y buscador",
+      "hours": 51,
+      "cost_eur": 3187.5
+    },
+    {
+      "name": "Carrito y proceso de compra",
+      "hours": 45,
+      "cost_eur": 2812.5
+    },
+    {
+      "name": "Integración de pasarela de pago",
+      "hours": 38,
+      "cost_eur": 2375.0
+    },
+    {
+      "name": "Gestión de pedidos",
+      "hours": 35,
+      "cost_eur": 2187.5
+    },
+    {
+      "name": "Autenticación y perfil de usuario",
+      "hours": 26,
+      "cost_eur": 1625.0
+    },
+    {
+      "name": "QA y publicación en stores",
+      "hours": 45,
+      "cost_eur": 2812.5
+    }
+  ]
+}

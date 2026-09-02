@@ -1,0 +1,26 @@
+ACTA DE REUNION - EDITORIAL MARIMÓN - 2023-06-04
+
+Lidrai Soluciones Digitales S.L.   Asistentes y notas tomadas a mano, sin grabacion.
+
+Irene explica que buenos días y gracias por el tiempo.  Soy Irene Castaño Abad, de Lidrai Soluciones Digitales S.L., y me acompaña Jorge Tejedor Arroyo, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de gestor de contenidos (CMS) para Editorial Marimón. Pau insiste en que encantado. Yo soy Pau Marimón Riera y conmigo está Gemma Estany Vidal, de nuestro equipo de sistemas. Pau añade que publicar una noticia hoy implica abrir un ticket a sistemas y esperar dos días. Queremos que marketing publique sin depender de nadie. Jorge comenta que ¿qué tipo de contenido publicáis y cuántas personas van a editar a la vez?
+
+
+
+Gemma explica que noticias, catálogo de títulos y bastante multimedia. Serían cinco editores y dos revisores. Jorge insiste en que el tratamiento de datos personales quedará conforme al RGPD, con registro de accesos. Irene comenta que con eso, el alcance que planteamos se estructura en fases: Arquitectura del CMS, Panel de administración, Editor de contenidos enriquecido, Usuarios y permisos, entre otras. La referencia interna del presupuesto es BUDGET-2023-0188.
+
+
+Pau añade que ¿y de qué cifra estamos hablando? Irene recuerda que la estimación son 500 horas, que a nuestra tarifa de 62,50 EUR/hora salen 31.250,00 EUR sin IVA.
+
+Pau insiste en que ¿31.250,00 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos. Pau explica que ¿quién formaría al equipo interno cuando esto esté en marcha? Jorge insiste en que el equipo recomendado es 2 full-stack + 1 frontend + 1 diseñador UX + 1 QA y la duración estimada 10-12 semanas. Gemma recuerda que nuestra fecha límite es el cierre de ejercicio.  Si se pasa de ahí, pierde sentido.
+
+
+
+Irene recuerda que el mantenimiento correctivo de los tres primeros meses va incluido; el evolutivo se contrata por bolsa de horas. Jorge añade que proponemos entornos separados de desarrollo, preproducción y producción desde el primer sprint.
+
+
+Irene añade que anotado. Os envío el acta y la propuesta formal a pau.marimon@editorialmarimon.cat esta misma tarde. Pau comenta que perfecto.  Si hay cualquier urgencia, mi móvil directo es +34 934 28 90 56.
+
+
+Irene añade que y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.
+
+Pendiente de confirmar presupuesto y calendario.   Se enviara propuesta por correo.

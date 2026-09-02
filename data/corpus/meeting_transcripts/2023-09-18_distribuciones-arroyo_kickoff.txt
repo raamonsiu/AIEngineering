@@ -1,0 +1,26 @@
+ACTA DE REUNION - DISTRIBUCIONES ARROYO - 2023-09-18
+
+Lidrai Soluciones Digitales S.L.   Asistentes y notas tomadas a mano, sin grabacion.
+
+Patricia comenta que buenos días y gracias por el tiempo. Soy Patricia Olmedo Rubio, de Lidrai Soluciones Digitales S.L., y me acompaña Jorge Tejedor Arroyo, que llevará la parte técnica. El objetivo de hoy es cerrar el alcance del proyecto de cuadro de mando analítico en tiempo real para Distribuciones Arroyo. Noelia insiste en que encantado. Yo soy Noelia Arroyo Cuesta y conmigo está Marcos Zorrilla Peña, de nuestro equipo de administración. Noelia añade que los informes de ventas los montamos a mano todos los lunes y llegan tarde. Necesitamos un cuadro de mando que se actualice solo. Jorge recuerda que ¿dónde están los datos de ventas ahora mismo y con qué frecuencia cambian?
+
+
+
+Patricia explica que incluimos dos sesiones de formación y un manual de usuario en castellano. Noelia añade que lo que no queremos es otro proyecto que se eternice. Eso ya nos pasó. Marcos insiste en que en PostgreSQL y en un par de ficheros de Google Sheets.  Cambian a cada minuto en campaña. Patricia explica que con eso, el alcance que planteamos se estructura en fases: Diseño del cuadro de mando, Desarrollo frontend, Integración de datos y APIs, Procesamiento en tiempo real, entre otras.  La referencia interna del presupuesto es BUDGET-2023-0042.
+
+
+Patricia comenta que el mantenimiento correctivo de los tres primeros meses va incluido; el evolutivo se contrata por bolsa de horas. Noelia apunta que ¿y de qué cifra estamos hablando? Patricia añade que la estimación son 255 horas, que a nuestra tarifa de 62,50 EUR/hora salen 15.937,50 EUR sin IVA.
+
+
+
+Noelia insiste en que ¿15.937,50 euros? Tendré que pasarlo por dirección, pero no está lejos de lo que manejábamos. Jorge añade que el equipo recomendado es 1 frontend + 1 backend + 1 ingeniero de datos y la duración estimada 8-10 semanas. Noelia comenta que una cosa importante: en campaña no podemos permitirnos caídas de servicio.
+
+
+Marcos añade que nuestra fecha límite es el cierre de ejercicio.  Si se pasa de ahí, pierde sentido. Noelia apunta que necesitamos poder exportar todo a Excel, el comité financiero no va a cambiar de herramienta. Patricia recuerda que anotado.  Os envío el acta y la propuesta formal a noelia.arroyo@distribucionesarroyo.com esta misma tarde.
+
+
+
+Noelia insiste en que perfecto. Si hay cualquier urgencia, mi móvil directo es +34 983 15 62 70. Patricia insiste en que y el nuestro, +34 910 22 44 86, o escribid a proyectos@lidrai.es. Cerramos aquí.
+
+
+Pendiente de confirmar presupuesto y calendario.   Se enviara propuesta por correo.

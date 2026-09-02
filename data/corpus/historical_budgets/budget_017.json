@@ -1,0 +1,61 @@
+{
+  "budget_id": "BUDGET-2026-0008",
+  "client_name": "Talleres Beltrán",
+  "client_code": "CLI-1010",
+  "project_type": "crm",
+  "total_amount": 24375.0,
+  "currency": "EUR",
+  "hours_estimated": 390,
+  "signed_at": "2026-01-20",
+  "status": "signed",
+  "contact_email": "oscar.beltran@talleresbeltran.es",
+  "contact_phone": "+34 947 44 37 12",
+  "account_manager": "Daniel Quintana Vega",
+  "phases": [
+    {
+      "name": "Arquitectura y modelo de datos",
+      "hours": 27,
+      "cost_eur": 1687.5
+    },
+    {
+      "name": "Diseño UI/UX",
+      "hours": 47,
+      "cost_eur": 2937.5
+    },
+    {
+      "name": "Módulo de clientes",
+      "hours": 58,
+      "cost_eur": 3625.0
+    },
+    {
+      "name": "Pipeline comercial y leads",
+      "hours": 66,
+      "cost_eur": 4125.0
+    },
+    {
+      "name": "Herramientas de comunicación",
+      "hours": 47,
+      "cost_eur": 2937.5
+    },
+    {
+      "name": "Informes y analítica",
+      "hours": 39,
+      "cost_eur": 2437.5
+    },
+    {
+      "name": "Permisos y autenticación",
+      "hours": 27,
+      "cost_eur": 1687.5
+    },
+    {
+      "name": "Integraciones con terceros",
+      "hours": 35,
+      "cost_eur": 2187.5
+    },
+    {
+      "name": "Pruebas y QA",
+      "hours": 44,
+      "cost_eur": 2750.0
+    }
+  ]
+}
