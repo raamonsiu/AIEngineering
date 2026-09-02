@@ -219,6 +219,10 @@ class Session(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_resolved_tier: str | None = None
     last_tier_rule: str | None = None
+    # The most recent ``turn_observed`` payload (Session 6 instrumentation).
+    # Held on the session, not only logged, so an eval running over HTTP can
+    # read a turn's cost/latency/token counts without scraping stdout.
+    last_turn: dict | None = None
 
 
 class AttachmentReport(BaseModel):
@@ -228,6 +232,77 @@ class AttachmentReport(BaseModel):
     method: str  # "pypdf" | "pymupdf" | "docx" | "llm_fallback" | "too_long" | "failed"
     ok: bool
     note: str | None = None
+
+
+class SessionSnapshot(BaseModel):
+    """Read-only X-ray of a live session, for debugging and for evals.
+
+    Exposes the three memory slots the CAG architecture keeps apart —
+    ``summary`` (compressed older turns), ``anchors`` (durable commitments
+    rescued from eviction) and ``project_metadata`` (extracted facts) —
+    plus the size counters that describe how full each one is.
+
+    The slot *contents* are returned, not just their sizes, and that is the
+    whole point of the endpoint. A counter (``summary_chars: 1840``) tells
+    you the summary grew; only the text tells you whether the project's
+    name is still in it. Memory-drift evals need the latter, and reading it
+    out of the process from a test would mean giving the eval a handle on
+    the in-memory store, which only works in-process and would quietly stop
+    working the moment the service runs behind HTTP.
+
+    This is a debug surface, not a product one: it is deliberately not part
+    of the conversational contract, and a client should never need it to
+    render a turn (``SessionEstimateResponse`` already carries everything
+    the UI needs).
+    """
+
+    session_id: str
+    created_at: datetime
+
+    # --- size counters -------------------------------------------------
+    message_count: int  # raw messages in the sliding window (2 per turn)
+    turn_count: int  # user/assistant pairs in the sliding window
+    anchors_count: int  # raw anchor messages (also 2 per anchored turn)
+    summary_chars: int
+    max_turns: int
+
+    # --- slot contents -------------------------------------------------
+    summary: str | None = None
+    anchors: list[Message] = Field(default_factory=list)
+    project_metadata: ProjectMetadata
+
+    # --- resolved selectors / tier -------------------------------------
+    project_type: ProjectType
+    detail_level: DetailLevel
+    output_format: OutputFormat
+    last_resolved_tier: str | None = None
+    last_tier_rule: str | None = None
+
+    # --- last turn's observation ---------------------------------------
+    # Populated from Session 6's ``turn_observed`` instrumentation; None
+    # until this session has run at least one turn on a build that emits it.
+    last_turn: dict | None = None
+
+    @classmethod
+    def from_session(cls, session: "Session") -> "SessionSnapshot":
+        return cls(
+            session_id=session.session_id,
+            created_at=session.created_at,
+            message_count=len(session.history.messages),
+            turn_count=len(session.history),
+            anchors_count=len(session.history.anchors),
+            summary_chars=len(session.history.summary or ""),
+            max_turns=session.history.max_turns,
+            summary=session.history.summary,
+            anchors=session.history.anchors,
+            project_metadata=session.project_metadata,
+            project_type=session.project_type,
+            detail_level=session.detail_level,
+            output_format=session.output_format,
+            last_resolved_tier=session.last_resolved_tier,
+            last_tier_rule=session.last_tier_rule,
+            last_turn=session.last_turn,
+        )
 
 
 class SessionEstimateResponse(BaseModel):

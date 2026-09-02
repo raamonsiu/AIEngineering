@@ -1,6 +1,8 @@
 """Session-scoped, multi-turn estimation.
 
 ``POST /api/v1/sessions`` creates an empty conversational session.
+``GET /api/v1/sessions/{session_id}`` returns a read-only snapshot of its
+memory (summary, anchors, metadata, counters) for debugging and evals.
 ``POST /api/v1/sessions/{session_id}/estimate`` runs one turn of it: a
 transcript plus optional attachments in, an updated ``EstimationResult`` and
 ``project_metadata`` out. Same error mapping as the single-shot endpoint
@@ -18,7 +20,7 @@ from app.dependencies import get_estimation_service, get_session_store
 from app.guardrails.input import InputGuardrailViolation
 from app.schemas.estimation import DetailLevel, OutputFormat, ProjectType
 from app.services.estimation import EstimationService
-from app.sessions import SessionEstimateResponse, SessionStore
+from app.sessions import SessionEstimateResponse, SessionSnapshot, SessionStore
 
 log = structlog.get_logger()
 
@@ -30,6 +32,29 @@ def create_session(store: SessionStore = Depends(get_session_store)) -> dict:
     session = store.create()
     log.info("session_created", session_id=session.session_id)
     return {"session_id": session.session_id}
+
+
+@router.get("/sessions/{session_id}", response_model=SessionSnapshot)
+def get_session(
+    session_id: str, store: SessionStore = Depends(get_session_store)
+) -> SessionSnapshot:
+    """Read-only X-ray of a session's memory.
+
+    Exists so the CAG's three memory slots can be inspected from *outside*
+    the process. The alternative — reaching into ``SessionStore`` from a
+    test — only works in-process, and the evals that need this run over
+    HTTP against the containerised service.
+
+    No side effects: it must never run compression, refresh metadata or
+    touch the LLM, or observing the system would change it.
+    """
+    session = store.get(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found. Create one with POST /api/v1/sessions.",
+        )
+    return SessionSnapshot.from_session(session)
 
 
 @router.post("/sessions/{session_id}/estimate", response_model=SessionEstimateResponse)

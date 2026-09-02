@@ -311,6 +311,14 @@ class LLMWrapper:
             "provider": _provider_from_model(model),
             "cost_usd": _estimate_cost(model, input_tokens, output_tokens),
             "latency_ms": latency_ms,
+            # Raw token counts travel with the derived cost: see CallMeta's
+            # docstring for why recording only cost_usd is not enough.
+            # Note these are the counts for the FINAL attempt only. Instructor
+            # re-prompts on a validator error, and each retry spends tokens
+            # that never reach this meta, so a turn's true token spend is
+            # >= tokens_in + tokens_out whenever a re-prompt happened.
+            "tokens_in": input_tokens,
+            "tokens_out": output_tokens,
         }
         log.info("llm_structured_call_completed", **meta)
         return result, meta

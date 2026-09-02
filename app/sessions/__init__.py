@@ -6,6 +6,7 @@ from app.sessions.models import (
     ProjectMetadata,
     Session,
     SessionEstimateResponse,
+    SessionSnapshot,
 )
 from app.sessions.store import SessionStore
 from app.sessions.metadata_extractor import update_metadata
@@ -18,6 +19,7 @@ __all__ = [
     "ProjectMetadata",
     "Session",
     "SessionEstimateResponse",
+    "SessionSnapshot",
     "SessionStore",
     "Tier",
     "apply_compression",

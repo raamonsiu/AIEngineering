@@ -154,12 +154,22 @@ class EstimationResult(BaseModel):
 class CallMeta(BaseModel):
     """What this particular call cost. On a cache hit nothing was spent, so
     ``cost_usd`` is 0.0 and ``model``/``provider`` describe whichever
-    deployment originally produced the cached result."""
+    deployment originally produced the cached result.
+
+    ``tokens_in``/``tokens_out`` are reported alongside ``cost_usd`` rather
+    than left implicit in it: cost is a *derived* number (tokens x the
+    pricing table in ``app/constants.py``), so a run that only records cost
+    cannot be re-priced when the table changes, and cannot separate "the
+    prompt grew" from "the model got more expensive". The token counts are
+    the raw observation; the cost is the interpretation.
+    """
 
     model: str | None = None
     provider: str | None = None
     cost_usd: float = 0.0
     latency_ms: int = 0
+    tokens_in: int = 0
+    tokens_out: int = 0
 
 
 class EstimationResponse(BaseModel):
