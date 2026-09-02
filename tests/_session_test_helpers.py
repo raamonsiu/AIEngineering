@@ -10,6 +10,7 @@ from __future__ import annotations
 import pymupdf
 
 from app.schemas.estimation import EstimationDraft
+from app.services.llm_wrapper import record_llm_call
 from app.sessions.models import ProjectMetadata
 
 
@@ -35,6 +36,13 @@ class FakeLLMWrapper:
         self.calls.append(
             {"messages": messages, "response_model": response_model, "model_name": model_name}
         )
+        # The double takes part in the per-turn call accounting the same way
+        # the real wrapper does, so turn_observed's totals are exercised by
+        # the in-process tests rather than only by a live run.
+        def record(meta: dict) -> dict:
+            record_llm_call(meta, model_group=model_name)
+            return meta
+
         text_blob = " ".join(_flatten_content(m["content"]) for m in messages).lower()
 
         if response_model is EstimationDraft:
@@ -51,7 +59,11 @@ class FakeLLMWrapper:
                     }
                 ],
             )
-            meta = {"model": "gpt-4o-mini", "provider": "openai", "cost_usd": 0.0001, "latency_ms": 10}
+            meta = {
+                "model": "gpt-4o-mini", "provider": "openai", "cost_usd": 0.0001,
+                "latency_ms": 10, "tokens_in": 500, "tokens_out": 120,
+            }
+            record(meta)
             return draft, meta
 
         if response_model is ProjectMetadata:
@@ -66,7 +78,11 @@ class FakeLLMWrapper:
             for keyword, label in [("react", "React"), ("postgresql", "PostgreSQL"), ("node", "Node")]:
                 if keyword in text_blob:
                     delta.mentioned_technologies = [*delta.mentioned_technologies, label]
-            meta = {"model": "gpt-4o-mini", "provider": "openai", "cost_usd": 0.00001, "latency_ms": 5}
+            meta = {
+                "model": "gpt-4o-mini", "provider": "openai", "cost_usd": 0.00001,
+                "latency_ms": 5, "tokens_in": 80, "tokens_out": 20,
+            }
+            record(meta)
             return delta, meta
 
         # Local imports: these compression schemas are only exercised by the
@@ -76,11 +92,19 @@ class FakeLLMWrapper:
         from app.sessions.compression.summarizer import _SummaryEnvelope
 
         if response_model is _SummaryEnvelope:
-            meta = {"model": "gpt-5-nano", "provider": "openai", "cost_usd": 0.000002, "latency_ms": 5}
+            meta = {
+                "model": "gpt-5-nano", "provider": "openai", "cost_usd": 0.000002,
+                "latency_ms": 5, "tokens_in": 40, "tokens_out": 15,
+            }
+            record(meta)
             return _SummaryEnvelope(summary="(canned summary for tests)"), meta
 
         if response_model is _AnchorClassification:
-            meta = {"model": "gpt-5-nano", "provider": "openai", "cost_usd": 0.000002, "latency_ms": 5}
+            meta = {
+                "model": "gpt-5-nano", "provider": "openai", "cost_usd": 0.000002,
+                "latency_ms": 5, "tokens_in": 40, "tokens_out": 10,
+            }
+            record(meta)
             return _AnchorClassification(is_anchor=False, reason="no durable commitment"), meta
 
         raise AssertionError(f"unexpected response_model: {response_model}")

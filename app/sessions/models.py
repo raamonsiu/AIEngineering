@@ -219,6 +219,12 @@ class Session(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_resolved_tier: str | None = None
     last_tier_rule: str | None = None
+    # Monotonic count of turns this session has completed. NOT derivable
+    # from ``len(history)``: the sliding window is capped at ``max_turns``,
+    # so after the cap is reached ``len(history)`` stops counting while the
+    # conversation keeps going — and "which turn are we on" is the x-axis of
+    # every degradation curve.
+    turns_completed: int = 0
     # The most recent ``turn_observed`` payload (Session 6 instrumentation).
     # Held on the session, not only logged, so an eval running over HTTP can
     # read a turn's cost/latency/token counts without scraping stdout.

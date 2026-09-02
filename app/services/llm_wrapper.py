@@ -23,6 +23,8 @@ Design notes
 from __future__ import annotations
 
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Iterator, TypeVar
 
 import instructor
@@ -36,6 +38,71 @@ from app.services.cache import EstimationCache
 log = structlog.get_logger()
 
 T = TypeVar("T", bound=BaseModel)
+
+
+# ----------------------------------------------------------------------
+# Per-turn call accounting
+# ----------------------------------------------------------------------
+# One conversational turn is not one LLM call. It is the estimator call
+# plus a metadata-extraction call plus, once the sliding window overflows,
+# a summarizer call (and, in "llm" anchor mode, one classification call per
+# evicted turn). Each returns its own ``meta``, and only the estimator's
+# reaches the caller — so a turn's reported cost would understate what the
+# turn actually spent, by a factor that GROWS precisely when the thing
+# under study (a long conversation) kicks in. That is the worst possible
+# measurement bias for a stress test: the side calls are the degradation.
+#
+# A ContextVar rather than an attribute on the wrapper: the wrapper is a
+# process-wide ``lru_cache`` singleton shared by every in-flight request,
+# so an instance-level list would interleave two sessions' calls. A
+# ContextVar is scoped to the task/thread handling one request, which is
+# exactly the boundary "one turn" means here.
+_TURN_CALLS: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "llm_turn_calls", default=None
+)
+
+
+@contextmanager
+def observe_turn() -> Iterator[list[dict[str, Any]]]:
+    """Collect the ``meta`` of every structured LLM call made inside the
+    block. Yields the list, which is populated as the calls happen.
+
+    Nesting is safe (the token reset restores the outer collector), and
+    outside any such block ``record_llm_call`` is a no-op, so instrumenting
+    the service costs nothing on paths that don't ask to be observed.
+    """
+    token = _TURN_CALLS.set([])
+    try:
+        yield _TURN_CALLS.get()  # type: ignore[misc]
+    finally:
+        _TURN_CALLS.reset(token)
+
+
+def record_llm_call(meta: dict[str, Any], *, model_group: str) -> None:
+    """Append one call's meta to the active ``observe_turn`` collector.
+
+    A module-level function, not a wrapper method, so test doubles can take
+    part in the accounting without subclassing ``LLMWrapper``.
+    """
+    sink = _TURN_CALLS.get()
+    if sink is not None:
+        sink.append({"model_group": model_group, **meta})
+
+
+def summarise_turn_calls(calls: list[dict[str, Any]]) -> dict[str, Any]:
+    """Fold a turn's calls into the totals ``turn_observed`` reports."""
+    return {
+        "llm_calls": len(calls),
+        "tokens_in": sum(int(c.get("tokens_in", 0) or 0) for c in calls),
+        "tokens_out": sum(int(c.get("tokens_out", 0) or 0) for c in calls),
+        "cost_usd": round(sum(float(c.get("cost_usd", 0.0) or 0.0) for c in calls), 8),
+        # Wall-clock latency is measured by the service around the whole
+        # turn, NOT summed from here: the sum of per-call latencies would
+        # miss everything between the calls (attachment extraction, prompt
+        # rendering, guardrails), which is exactly what a big attachment
+        # makes expensive.
+        "llm_latency_ms": sum(int(c.get("latency_ms", 0) or 0) for c in calls),
+    }
 
 
 def _normalise_model_name(model: str) -> str:
@@ -320,7 +387,8 @@ class LLMWrapper:
             "tokens_in": input_tokens,
             "tokens_out": output_tokens,
         }
-        log.info("llm_structured_call_completed", **meta)
+        log.info("llm_structured_call_completed", model_group=model_name, **meta)
+        record_llm_call(meta, model_group=model_name)
         return result, meta
 
     def complete_stream(

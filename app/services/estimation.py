@@ -26,6 +26,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import time
 
 import structlog
 
@@ -45,7 +46,7 @@ from app.schemas.estimation import (
     ProjectType,
 )
 from app.services.cache import EstimationCache
-from app.services.llm_wrapper import LLMWrapper
+from app.services.llm_wrapper import LLMWrapper, observe_turn, summarise_turn_calls
 from app.sessions import (
     AttachmentReport,
     Session,
@@ -216,6 +217,12 @@ class EstimationService:
         check_input(transcript, openai_client=self.openai_client)
         self._apply_session_selectors(session, project_type, detail_level, output_format)
 
+        # Wall-clock starts here, after the guardrail, so the measured
+        # latency is the work this turn does rather than the moderation
+        # round-trip that every turn pays equally.
+        turn_started_at = time.perf_counter()
+        turn_calls: list[dict] = []
+
         resolved_tier, tier_rule = resolve_tier(
             transcript=transcript, metadata=session.project_metadata
         )
@@ -245,39 +252,45 @@ class EstimationService:
         )
         messages.append({"role": "user", "content": user_content})
 
-        try:
-            draft, meta = self.llm_wrapper.complete_structured_with_messages(
-                messages=messages, response_model=EstimationDraft
-            )
-        except Exception:
-            if not multimodal_blocks:
-                raise
-            draft, meta, user_message = self._retry_without_multimodal(
-                session=session,
-                transcript=transcript,
-                attachments_block=attachments_block,
-                multimodal_blocks=multimodal_blocks,
-                attachment_reports=attachment_reports,
-                system_prompt=system_prompt,
-            )
+        # Everything from here to the end of metadata refresh is one turn's
+        # worth of LLM work: the estimator call, the summarizer the
+        # compression policy may trigger, and the metadata extractor. The
+        # collector sees all three (see ``observe_turn``).
+        with observe_turn() as collected:
+            try:
+                draft, meta = self.llm_wrapper.complete_structured_with_messages(
+                    messages=messages, response_model=EstimationDraft
+                )
+            except Exception:
+                if not multimodal_blocks:
+                    raise
+                draft, meta, user_message = self._retry_without_multimodal(
+                    session=session,
+                    transcript=transcript,
+                    attachments_block=attachments_block,
+                    multimodal_blocks=multimodal_blocks,
+                    attachment_reports=attachment_reports,
+                    system_prompt=system_prompt,
+                )
 
-        result = enforce_scope_response(EstimationResult.from_draft(draft))
-        # The full result JSON, not a hand-rolled summary: it's what the
-        # metadata extractor reads too, and re-deriving a compact string here
-        # would just be a lossier copy of data we already have.
-        assistant_content = result.model_dump_json()
-        session.history.append(user=user_message, assistant=assistant_content)
-        apply_compression(
-            session.history,
-            llm_wrapper=self.llm_wrapper,
-            anchor_detection_mode=self.anchor_detection_mode,
-        )
-        session.project_metadata = update_metadata(
-            previous=session.project_metadata,
-            transcript=transcript,
-            result=result,
-            llm_wrapper=self.llm_wrapper,
-        )
+            result = enforce_scope_response(EstimationResult.from_draft(draft))
+            # The full result JSON, not a hand-rolled summary: it's what the
+            # metadata extractor reads too, and re-deriving a compact string here
+            # would just be a lossier copy of data we already have.
+            assistant_content = result.model_dump_json()
+            session.history.append(user=user_message, assistant=assistant_content)
+            apply_compression(
+                session.history,
+                llm_wrapper=self.llm_wrapper,
+                anchor_detection_mode=self.anchor_detection_mode,
+            )
+            session.project_metadata = update_metadata(
+                previous=session.project_metadata,
+                transcript=transcript,
+                result=result,
+                llm_wrapper=self.llm_wrapper,
+            )
+            turn_calls = list(collected)
 
         log.info(
             "session_estimation_generated",
@@ -290,17 +303,114 @@ class EstimationService:
             **meta,
         )
 
+        session.turns_completed += 1
+        session.last_turn = self._observe_turn(
+            session=session,
+            transcript=transcript,
+            attachments_block=attachments_block,
+            attachment_reports=attachment_reports,
+            resolved_tier=resolved_tier.value,
+            turn_calls=turn_calls,
+            latency_ms=int((time.perf_counter() - turn_started_at) * 1000),
+            model=meta.get("model"),
+        )
+        log.info("turn_observed", **session.last_turn)
+
         return SessionEstimateResponse(
             result=result,
             prompt_version=self.conversational_prompt_version,
             cached=False,
-            meta=CallMeta(**meta),
+            # The turn's totals, not just the estimator call's: a caller
+            # asking "what did this turn cost" means all of it.
+            meta=CallMeta(
+                model=meta.get("model"),
+                provider=meta.get("provider"),
+                cost_usd=session.last_turn["cost_usd"],
+                latency_ms=session.last_turn["latency_ms"],
+                tokens_in=session.last_turn["tokens_in"],
+                tokens_out=session.last_turn["tokens_out"],
+            ),
             session_id=session.session_id,
             project_metadata=session.project_metadata,
             attachments=attachment_reports,
             resolved_tier=resolved_tier.value,
             tier_rule=tier_rule,
         )
+
+    @staticmethod
+    def _observe_turn(
+        *,
+        session: Session,
+        transcript: str,
+        attachments_block: str,
+        attachment_reports: list[AttachmentReport],
+        resolved_tier: str,
+        turn_calls: list[dict],
+        latency_ms: int,
+        model: str | None,
+    ) -> dict:
+        """Build the single ``turn_observed`` record for this turn.
+
+        One aggregated event rather than the five separate ones the pipeline
+        already logs (``llm_structured_call_completed``, ``history_compressed``,
+        ``summarizer_completed``, ...). The separate events are fine for
+        tracing one request; they are the wrong shape for a dataset. To get
+        a row per turn out of them you must correlate five lines by
+        timestamp, hope nothing interleaved under concurrency, and handle
+        the lines that simply don't exist on turns where compression didn't
+        fire. The correlation that matters here — "when the window was full,
+        what did the turn cost?" — is a join across those lines, and a join
+        you have to reconstruct in an awk script is a join you will get
+        wrong. Emitting the row already joined makes the CSV a projection of
+        the log rather than an inference from it.
+
+        The counters are deliberately in characters, not tokens: characters
+        are what this service actually controls (it decides what to put in
+        the prompt), they need no tokenizer to compute, and they stay
+        comparable if the model changes. ``tokens_in``/``tokens_out`` come
+        back from the provider for the same turn, so the CSV carries both
+        the lever and its effect, which is what makes the latency-vs-tokens
+        curve readable.
+        """
+        attachments_total_chars = len(attachments_block)
+        totals = summarise_turn_calls(turn_calls)
+
+        return {
+            "turn_index": session.turns_completed,
+            "session_id": session.session_id,
+            # What this turn actually handed the model from the user side:
+            # the transcript plus whatever the attachments contributed.
+            "enriched_transcript_chars": len(transcript) + attachments_total_chars,
+            "attachments_total_chars": attachments_total_chars,
+            "messages_in_window": len(session.history.messages),
+            "anchors_count": len(session.history.anchors),
+            "summary_chars": len(session.history.summary or ""),
+            "tokens_in": totals["tokens_in"],
+            "tokens_out": totals["tokens_out"],
+            "cost_usd": totals["cost_usd"],
+            "latency_ms": latency_ms,
+            # Always "none" on this path, and that is a fact about the
+            # architecture, not a gap in the instrumentation:
+            # ``estimate_in_session`` skips both caches on purpose (see this
+            # method's own docstring). The field is emitted anyway so the
+            # conversational flow's 0% hit rate is *visible* in the dataset
+            # instead of being an absence someone has to already know about.
+            "cache_hit_kind": "none",
+            "last_resolved_tier": resolved_tier,
+            # --- beyond the required minimum ------------------------------
+            # llm_calls makes the cost curve legible: a jump between two
+            # turns is either a bigger prompt or an extra side call, and
+            # without this you cannot tell which.
+            "llm_calls": totals["llm_calls"],
+            "llm_latency_ms": totals["llm_latency_ms"],
+            "model": model,
+            "attachments_count": len(attachment_reports),
+            # An oversized attachment is REJECTED, not truncated (see
+            # ``enforce_length_limit``), so at the top size bucket both cost
+            # and recall fall. Without this column that reads as the system
+            # getting cheaper.
+            "attachments_rejected": sum(1 for r in attachment_reports if not r.ok),
+        }
 
     @staticmethod
     def _apply_session_selectors(

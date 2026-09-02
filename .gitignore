@@ -11,3 +11,6 @@ wheels/
 
 # Environment vars
 .env
+# Stress-suite attachment corpus: regenerated deterministically by
+# evals/stress/fixtures/build_pdfs.py, so it does not belong in git.
+evals/stress/fixtures/*.pdf
