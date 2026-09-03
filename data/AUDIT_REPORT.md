@@ -60,7 +60,7 @@ Generado automáticamente desde `data_catalog.yaml`. No editar a mano.
 
 ## Última ejecución del pipeline
 
-Inicio: 2026-10-04T16:28:23.431318+00:00 · documentos emitidos: **88**
+Inicio: 2026-10-04T17:08:27.966064+00:00 · documentos emitidos: **88**
 
 | Fuente | Decisión | Ficheros | Unidades | Tras limpieza | Documentos | Válidos | Cuarentena | Descartados | Entidades anonimizadas |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
