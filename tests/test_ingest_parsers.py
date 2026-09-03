@@ -11,7 +11,6 @@ import io
 import json
 
 import pymupdf
-import pytest
 from docx import Document as DocxDocument
 from openpyxl import Workbook
 

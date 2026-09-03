@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="CAG Estimator",
     description="API for software project estimation using CAG architecture",
-    version="0.5.0",
+    version="0.6.0",
     docs_url=None, # In order to deactivate /docs swagger default
     lifespan=lifespan,
 )

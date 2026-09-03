@@ -28,7 +28,7 @@ Extraction is a self-validating pipeline, not a single best-effort call:
 from __future__ import annotations
 
 import io
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import structlog
 from pypdf import PdfReader

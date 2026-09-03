@@ -20,7 +20,7 @@ import math
 import statistics
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Iterable, Sequence
 
 TURN_LADDER = (1, 3, 6, 10, 20)
 
@@ -274,7 +274,7 @@ def key_facts(rows: list[dict]) -> str:
     lines.append(f"- anchors_count: max observed = {max(anchors):.0f}")
     kinds = [r.get("cache_hit_kind") for r in rows]
     lines.append(
-        f"- cache_hit_kind: "
+        "- cache_hit_kind: "
         + ", ".join(f"{k}={kinds.count(k)}" for k in sorted(set(kinds)))
         + f" of {len(kinds)} rows"
     )

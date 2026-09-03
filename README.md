@@ -43,7 +43,8 @@ cag-estimator/
 │   ├── routers/
 │   │   ├── estimations.py      -- POST /api/v1/estimate (HTTP error mapping only)
 │   │   ├── estimations_text.py -- Free-text endpoints: /estimate/text, /estimate/stream
-│   │   └── sessions.py         -- POST /sessions, POST /sessions/{id}/estimate
+│   │   ├── sessions.py         -- POST /sessions, GET /sessions/{id}, POST /sessions/{id}/estimate
+│   │   └── indexing.py         -- POST /index/run, GET /index/runs/{id}, GET /index/audit, POST /query
 │   ├── services/
 │   │   ├── estimation.py       -- EstimationService: structured pipeline + session turns
 │   │   ├── llm_service.py      -- Free-text prompt building + orchestration
@@ -72,12 +73,33 @@ cag-estimator/
 │   │   ├── estimation/v2/       -- system.j2, user.j2 (conversational: adds <project_metadata>)
 │   │   ├── estimation/v3/       -- system.j2, user.j2 (conversational: adds <audience>, the resolved tier)
 │   │   └── conversation_summary/v1/ -- system.j2, user.j2 (the cumulative-summary pass)
+│   ├── ingest/                  -- Offline ingestion subsystem (Session 6)
+│   │   ├── catalog.py          -- Typed data_catalog.yaml: what the pipeline is allowed to process
+│   │   ├── census.py           -- Facts-only inspection CLI + catalog-vs-disk drift check
+│   │   ├── architecture.py     -- CAG vs RAG decision, with this project's measured numbers
+│   │   ├── models.py           -- ParsedUnit (parser output) and Document (canonical contract)
+│   │   ├── loaders/            -- How to reach the bytes (filesystem; Drive/S3 would slot in here)
+│   │   ├── parsers/            -- One per format: json, txt, docx, pdf, xlsx (+ shared extraction)
+│   │   ├── cleaning/           -- Normalisation (pandas) + validation (Pandera) + failure routing
+│   │   ├── anonymization/      -- Presidio + Faker pseudonymisation, HMAC-keyed mapping store
+│   │   ├── normalizers/        -- ParsedUnit -> Document, deterministic ids
+│   │   ├── orchestrator.py     -- Runs the whole offline pipeline per catalog source
+│   │   └── audit.py            -- Renders the catalog as a human-readable audit report
 │   ├── context/
 │   │   └── examples.py         -- CAG reference examples for the free-text flow
 │   └── schemas/
 │       ├── estimation.py       -- Structured: Request, Draft, Result, Response
 │       └── estimations.py      -- Free-text: transcription in, Markdown + evaluation out
 ├── streamlit_app.py         -- Streamlit UI: structured form + streaming chat + project session
+├── data/
+│   ├── build_corpus.py      -- Deterministic generator for the synthetic corpus
+│   ├── data_catalog.yaml    -- The audited source catalog (the pipeline obeys it)
+│   ├── AUDIT_REPORT.md      -- Generated from the catalog; not edited by hand
+│   └── corpus/              -- The corpus itself: budgets, transcripts, proposals, contracts, rate card
+├── evals/
+│   ├── metrics.py           -- MetricResult, Metric protocol, run_all_metrics
+│   └── stress/              -- Session 6 pre-work: load scenarios, budget metrics, runner, REPORT.md
+├── CAG_LIMITS.md            -- Where CAG stops being viable here, with measured numbers
 ├── tests/
 ├── .env.example
 ├── docker-compose.yml
@@ -133,6 +155,12 @@ See [`.env.example`](.env.example) for the full list. Beyond the API keys and mo
 | `COMPRESSION_MODEL` | `gpt-5-nano` | Primary model for the compression side calls (summary + optional LLM anchor classifier) |
 | `COMPRESSION_FALLBACK_MODEL` | `claude-haiku-4-5-20251001` | Its fallback, via the same Router mechanism as the main call |
 | `ANCHOR_DETECTION_MODE` | `heuristic` | `heuristic` (regex, no LLM call) or `llm` (Instructor classifier per evicted turn) |
+| `DATA_CATALOG_PATH` | `data/data_catalog.yaml` | The catalog the ingestion pipeline obeys |
+| `CORPUS_ROOT` | `data/corpus` | Where the catalog's `file://` locations resolve to |
+| `PSEUDONYM_MAPPING_PATH` | `data/.pseudonyms.json` | Pseudonym mapping table. Git-ignored: it is regulated data |
+| `PSEUDONYM_HASH_SALT` | `change-me-in-prod` | Keys the HMAC the mapping table stores. **Must be overridden in any real deployment** |
+| `PSEUDONYM_LOCALE` | `es_ES` | Faker locale for generated pseudonyms |
+| `PII_SCORE_THRESHOLD` | `0.7` | Minimum Presidio confidence. Raised from the 0.5 default: the Spanish NER model tags common nouns as PERSON too often at 0.5 |
 
 ## Endpoints
 
@@ -143,7 +171,12 @@ See [`.env.example`](.env.example) for the full list. Beyond the API keys and mo
 | POST   | `/api/v1/estimate/text`             | Free-text estimation (transcription in, Markdown out)   |
 | POST   | `/api/v1/estimate/stream`           | Free-text estimation streamed over Server-Sent Events   |
 | POST   | `/api/v1/sessions`                  | Create a multi-turn session, returns `{"session_id": ...}` |
+| GET    | `/api/v1/sessions/{id}`             | Read-only snapshot of a session's memory (summary, anchors, metadata, last turn) |
 | POST   | `/api/v1/sessions/{id}/estimate`    | One turn of a multi-turn estimation, with optional attachments |
+| POST   | `/api/v1/index/run`                 | Schedule an offline indexing run (202, work happens in the background) |
+| GET    | `/api/v1/index/runs/{run_id}`       | Status and per-source report of an indexing run |
+| GET    | `/api/v1/index/audit`               | The data audit report as Markdown, generated from the catalog |
+| POST   | `/api/v1/query`                     | Online retrieval pipeline. **501** until there is a vector index |
 
 The structured endpoint is the main one: typed request, validated `EstimationResult`, both cache layers. The two free-text endpoints take a raw meeting transcription and return Markdown, they share the same input guardrails, wrapper and exact-match cache, but not the semantic cache (whose bucket is keyed on the typed form options a free-text request doesn't have). `/estimate/text` also runs a static structural evaluation of the generated Markdown (`app/services/evaluation.py`); `/estimate/stream` is what the Streamlit chat consumes.
 
@@ -270,6 +303,38 @@ Both the summarizer and the LLM anchor classifier run against a dedicated, cheap
 ### Dynamic audience tier (Session 5)
 
 `app/sessions/tier_resolver.py`'s `resolve_tier()` derives an audience tier, `executive` / `pm` / `developer` / `default`, from the current transcript plus the session's accumulated `ProjectMetadata`, and `v3`'s `<audience>` block reframes the same structured output for that reader (executive: risk-first, 3-4 plain-English phases; pm: milestone-oriented, capped phases, conservative confidence; developer: technical detail, up to 6-8 phases). It's a precedence-ordered chain of pure-function rules, evaluated in order, first match wins: `nda_detected` and `regulatory_context` (HIPAA/GDPR/RGPD/…) resolve to `executive`, `technical_audience` (two or more distinct technical keywords, one mention alone is too noisy to promote) resolves to `developer`, `low_budget_pm` (`assumed_team_size <= 2`) resolves to `pm`, anything else is `default`. A rule whose predicate raises is logged and skipped rather than aborting resolution for the remaining rules. Both `resolved_tier` and the `rule` name that fired are echoed back on `SessionEstimateResponse` (`resolved_tier`, `tier_rule`) so a client can show *why* a given framing was chosen, not just which one. Resolution is fully automatic in this phase, there is no per-call override parameter; the API surface can grow one when a real caller needs to force a tier.
+
+### Offline ingestion and the data catalog (Session 6)
+
+The service now has two pipelines with nothing in common, and keeping them apart is the architectural decision, not a stylistic one.
+
+**Offline** (`POST /api/v1/index/run`) runs ingest → parse → clean → validate → anonymise. It is triggered by ingestion events, never by a user question, and its budget is minutes. **Online** (`POST /api/v1/query`) is retrieve → augment → generate, with a user waiting and a budget under three seconds. It returns `501` today: retrieval needs a vector index, and the contract is written down now so the shape of the API is fixed before anything depends on it. A service that indexes two hundred PDFs inside the request path that answers questions is a service that stops answering questions.
+
+`data/data_catalog.yaml` is the control surface, not documentation. `app/ingest/orchestrator.py` iterates over the sources it marks `include` and processes nothing else, so a source marked `exclude` is not indexed however present its files are. Three decisions are valid (`include`, `review`, `exclude`), and anything that is not `include` **must** carry a `decision_reason` — an exclusion with no recorded justification is indistinguishable from an oversight six months later. The catalog rejects unknown keys, duplicate source names and unsupported formats at load time rather than halfway through a run.
+
+Quality is scored on four dimensions (completeness, consistency, actuality, reliability) which **compose rather than average**: a source at 5 on completeness and 1 on reliability is not a 3, it is a source whose data is complete and possibly false, which is the worst thing to put in a retrieval index. `app/ingest/census.py` is the factual half — it measures what is on disk and scores nothing, and `--against` re-measures every declared source so the catalog can be checked instead of trusted.
+
+Parsing is one layer per kind of problem: **loaders** know how to reach bytes, **parsers** know what is inside them, **normalizers** produce the canonical `Document`. Each format gets the right tool rather than one universal library: JSON budgets render to structured markdown (a `json.dumps` blob mixes technical keys with semantic values and makes every record's vector look alike), transcripts split into turns carrying speaker and timestamp, DOCX splits by heading, PDF by page, XLSX to a markdown table. `unstructured` with `hi_res` is deliberately absent: the corpus is five predictable formats and born-digital PDFs, so it would cost an order of magnitude in latency and compute to recover tables and OCR that are not needed.
+
+Cleaning sits between parser and normalizer so there is exactly one place where invariants are enforced, and it is split in two halves. Normalisation (`cleaning/budgets.py`, `cleaning/text.py`) transforms what can be transformed and decides nothing. Validation (`cleaning/schemas.py` with Pandera, `cleaning/policy.py`) states the contract and routes each failure: **repair** (already attempted upstream), **quarantine** (recoverable, kept for a human) or **discard** (contamination). `lazy=True` is what makes the routing possible at all — without it Pandera stops at the first error and the policy would be blind to every other one.
+
+Every document carries a deterministic id (`source:document:unit`) that is stable across re-ingestions, so the downstream index replaces a document instead of accumulating a second copy of the corpus on every run, plus the catalog version that produced it.
+
+### PII, pseudonymisation and GDPR (Session 6)
+
+Anonymisation runs **before** indexing, not as a filter on responses. Once a value is in the vector space it is reachable by any query that comes semantically close, and there is no permission check in front of that.
+
+Detection is Presidio wired to Spanish (`es_core_news_md`; the English default silently returns zero PERSON entities on Hispanic names, which is worse than a false positive because it goes unnoticed), extended with the identifiers this domain uses: `BUDGET_ID`, `CLIENT_CODE` and local phone numbers. The confidence threshold is raised to 0.7 and a short blacklist handles the words the Spanish model is confidently wrong about (`Mar`, `Sol`, `Cruz`).
+
+Replacement is **reversible pseudonymisation**, not `<PERSON>` tokens: each entity becomes a stable fake value of the same kind, so the corpus keeps its shape instead of collapsing every person onto one token. Consistency is per original value, so the same person becomes the same pseudonym in all four hundred chunks that mention them — without that, the privacy layer would reintroduce exactly the vector-space fragmentation the cleaning layer exists to remove.
+
+The mapping store is keyed on a **salted HMAC-SHA256 of the original value; the plaintext never reaches it**. Consistency still works (hash the value, find the row) and so does erasure (hash the value, delete the row), but the table cannot be enumerated: a leaked mapping file is a list of opaque digests and fake names, not a directory of every real person in the corpus. An HMAC rather than a bare digest because a plain SHA-256 of a personal name falls to a dictionary attack in seconds. `PSEUDONYM_HASH_SALT` must be overridden in any real deployment.
+
+Known limits, stated rather than hidden: the JSON backing is not encrypted at rest and rewrites the whole file per save, and GDPR Article 17 is only partly answerable — the store covers locating the pseudonyms, knowing which sources mention a person and deleting the mapping, but removing the affected chunks from the index and writing the audit-log entry need an index that does not exist yet.
+
+### Where CAG stops being viable (Session 6)
+
+[`CAG_LIMITS.md`](CAG_LIMITS.md) holds the decision, with numbers measured from this repository's own stress run rather than assumed. The short version: the corpus **fits** (15.6% of the window) and is **cheap** ($0.0030 per query), and CAG is still the wrong architecture here. Two of the four ceilings fail — latency (9.5 s projected against a 3 s conversational budget) and quality under load (100% of superseded facts survive) — and the decision tree does not even reach them: traceability and per-user access control are structural requirements that no amount of context-window headroom can satisfy. It is the difference between "it does not fit" and "it does not serve".
 
 ## Testing
 ```bash

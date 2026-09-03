@@ -14,7 +14,7 @@ keeps the audit a living practice instead of a one-off deliverable.
 
 from __future__ import annotations
 
-from app.ingest.catalog import DataCatalog, QualityScore
+from app.ingest.catalog import DataCatalog
 from app.ingest.orchestrator import IngestionRun
 
 _DIMENSIONS = ("completeness", "consistency", "actuality", "reliability")

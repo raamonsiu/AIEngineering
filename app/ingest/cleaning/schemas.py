@@ -25,7 +25,7 @@ from typing import Annotated, Optional
 
 import pandas as pd
 import pandera.pandas as pa
-from pandera.pandas import Check, DataFrameModel, Field
+from pandera.pandas import DataFrameModel, Field
 from pandera.typing.pandas import Series
 
 # Canonical identifier shapes. Not cosmetics: these are the contract with

@@ -11,9 +11,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.ingest.catalog import (
-    CatalogSource,
     DataCatalog,
-    IngestionDecision,
     Quality,
     load_catalog,
 )
