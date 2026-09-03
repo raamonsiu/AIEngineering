@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     # that must never ship with the repository.
     PSEUDONYM_MAPPING_PATH: str = "data/.pseudonyms.json"
     PSEUDONYM_LOCALE: str = "es_ES"
+    # Server-side secret keying the HMAC that the mapping table stores
+    # instead of the plaintext value. Changing it orphans every existing
+    # mapping (old hashes stop matching), so it is rotated only alongside
+    # a full re-ingestion. The default is a placeholder: a real deployment
+    # must override it, and the audit report says so when it has not been.
+    PSEUDONYM_HASH_SALT: str = "change-me-in-prod"
     # Raised from Presidio's 0.5 default: the Spanish NER model tags common
     # nouns ("Mar", "Sol", "Cruz") as PERSON often enough that 0.5 produces
     # more noise than signal. See app/ingest/anonymization/recognizers.py.

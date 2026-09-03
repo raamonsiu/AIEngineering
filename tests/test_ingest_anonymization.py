@@ -13,7 +13,11 @@ from __future__ import annotations
 
 import pytest
 
-from app.ingest.anonymization.mapping_store import JsonMappingStore, PseudonymMapping
+from app.ingest.anonymization.mapping_store import (
+    JsonMappingStore,
+    PseudonymMapping,
+    hash_value,
+)
 from app.ingest.anonymization.pseudonymizer import ConsistentPseudonymizer
 from app.ingest.anonymization.recognizers import is_blacklisted
 
@@ -23,73 +27,135 @@ def store(tmp_path) -> JsonMappingStore:
     return JsonMappingStore(tmp_path / "pseudonyms.json")
 
 
+SALT = "test-salt-not-a-real-secret"
+
+
+def _mapping(original: str, pseudonym: str, entity_type: str, source: str = "t") -> PseudonymMapping:
+    """Build a mapping the way the pipeline does: hashed, never plaintext."""
+    return PseudonymMapping(
+        original_hash=hash_value(original, SALT),
+        pseudonym=pseudonym,
+        entity_type=entity_type,
+        first_seen_at="2026-09-02T00:00:00+00:00",
+        source_name=source,
+    )
+
+
 @pytest.fixture(scope="module")
 def _shared_pseudonymizer(tmp_path_factory):
     path = tmp_path_factory.mktemp("anon") / "pseudonyms.json"
-    return ConsistentPseudonymizer(JsonMappingStore(path))
+    return ConsistentPseudonymizer(JsonMappingStore(path), salt=SALT)
 
 
 # ----------------------------------------------------------------------
 # Mapping store
 # ----------------------------------------------------------------------
+def test_the_store_never_holds_a_plaintext_value(store, tmp_path) -> None:
+    """The point of the whole design: a leaked mapping file must not be a
+    directory of the real people in the corpus."""
+    store.lookup_or_create(
+        entity_type="PERSON",
+        original_hash=hash_value("Juan García", SALT),
+        factory=lambda: "Carlos Martínez",
+        source_name="transcripts",
+    )
+
+    on_disk = (tmp_path / "pseudonyms.json").read_text(encoding="utf-8")
+
+    assert "Juan García" not in on_disk
+    assert "Carlos Martínez" in on_disk  # the fake name is not a secret
+    assert hash_value("Juan García", SALT) in on_disk
+
+
+def test_the_hash_is_keyed_so_it_is_not_brute_forceable(store) -> None:
+    """A bare SHA-256 of a personal name falls to a dictionary attack in
+    seconds; the secret salt is what prevents that."""
+    assert hash_value("Juan García", "salt-a") != hash_value("Juan García", "salt-b")
+    assert hash_value("Juan García", SALT) == hash_value("Juan García", SALT)
+
+
 def test_mapping_survives_a_reopen(store, tmp_path) -> None:
     """Erasure requests arrive months later, in a different process."""
-    store.save(PseudonymMapping("Juan García", "Carlos Martínez", "PERSON", "2026-09-02", "transcripts"))
+    digest = hash_value("Juan García", SALT)
+    store.lookup_or_create(
+        entity_type="PERSON", original_hash=digest,
+        factory=lambda: "Carlos Martínez", source_name="t",
+    )
 
     reopened = JsonMappingStore(tmp_path / "pseudonyms.json")
 
-    assert reopened.lookup("Juan García", "PERSON").pseudonym == "Carlos Martínez"
+    assert reopened.lookup("PERSON", digest).pseudonym == "Carlos Martínez"
 
 
 def test_the_same_value_as_two_entity_types_is_two_mappings(store) -> None:
     """Collapsing them would make one erasure silently delete the other."""
-    store.save(PseudonymMapping("Sevilla", "Burgos", "LOCATION", "2026-09-02", "s"))
-    store.save(PseudonymMapping("Sevilla", "Hooli SA", "ORGANIZATION", "2026-09-02", "s"))
+    digest = hash_value("Sevilla", SALT)
+    store.lookup_or_create(entity_type="LOCATION", original_hash=digest,
+                           factory=lambda: "Burgos", source_name="s")
+    store.lookup_or_create(entity_type="ORGANIZATION", original_hash=digest,
+                           factory=lambda: "Hooli SA", source_name="s")
 
-    assert store.lookup("Sevilla", "LOCATION").pseudonym == "Burgos"
-    assert store.lookup("Sevilla", "ORGANIZATION").pseudonym == "Hooli SA"
-    assert len(store.find_by_original("Sevilla")) == 2
+    assert store.lookup("LOCATION", digest).pseudonym == "Burgos"
+    assert store.lookup("ORGANIZATION", digest).pseudonym == "Hooli SA"
+    assert len(store.find_by_hash(digest)) == 2
 
 
-def test_find_by_original_is_case_insensitive(store) -> None:
-    store.save(PseudonymMapping("Juan García", "Carlos Martínez", "PERSON", "2026-09-02", "t"))
+def test_lookup_or_create_is_idempotent(store) -> None:
+    digest = hash_value("Ana Ruiz", SALT)
+    calls = []
 
-    assert len(store.find_by_original("juan garcía")) == 1
+    def factory() -> str:
+        calls.append(1)
+        return f"Lucía Prat {len(calls)}"
+
+    first = store.lookup_or_create(entity_type="PERSON", original_hash=digest,
+                                   factory=factory, source_name="t")
+    second = store.lookup_or_create(entity_type="PERSON", original_hash=digest,
+                                    factory=factory, source_name="t")
+
+    assert first == second
+    assert len(calls) == 1  # the generator ran once
 
 
 def test_forget_removes_every_mapping_and_reports_what_it_removed(store) -> None:
     """Step 4 of an erasure request; the return value feeds steps 2, 3 and 5."""
-    store.save(PseudonymMapping("Juan García", "Carlos Martínez", "PERSON", "2026-09-02", "t"))
-    store.save(PseudonymMapping("Juan García", "x@y.com", "EMAIL_ADDRESS", "2026-09-02", "b"))
-    store.save(PseudonymMapping("Ana Ruiz", "Lucía Prat", "PERSON", "2026-09-02", "t"))
+    target = hash_value("Juan García", SALT)
+    other = hash_value("Ana Ruiz", SALT)
+    store.lookup_or_create(entity_type="PERSON", original_hash=target,
+                           factory=lambda: "Carlos Martínez", source_name="t")
+    store.lookup_or_create(entity_type="EMAIL_ADDRESS", original_hash=target,
+                           factory=lambda: "x@y.com", source_name="b")
+    store.lookup_or_create(entity_type="PERSON", original_hash=other,
+                           factory=lambda: "Lucía Prat", source_name="t")
 
-    removed = store.forget("Juan García")
+    removed = store.forget(target)
 
     assert len(removed) == 2
     assert {m.entity_type for m in removed} == {"PERSON", "EMAIL_ADDRESS"}
-    assert store.lookup("Juan García", "PERSON") is None
-    # Unrelated people are untouched.
-    assert store.lookup("Ana Ruiz", "PERSON") is not None
+    assert store.lookup("PERSON", target) is None
+    assert store.lookup("PERSON", other) is not None
 
 
 def test_forgetting_an_absent_value_is_a_no_op(store) -> None:
-    assert store.forget("Nunca Existió") == []
+    assert store.forget(hash_value("Nunca Existió", SALT)) == []
 
 
 def test_the_store_records_which_source_first_mentioned_a_person(store) -> None:
     """Step 2 of erasure: which sources mention this person, without
     walking the whole corpus."""
-    store.save(PseudonymMapping("Ana Ruiz", "Lucía Prat", "PERSON", "2026-09-02", "meeting_transcripts"))
+    digest = hash_value("Ana Ruiz", SALT)
+    store.lookup_or_create(entity_type="PERSON", original_hash=digest,
+                           factory=lambda: "Lucía Prat", source_name="meeting_transcripts")
 
-    assert store.find_by_original("Ana Ruiz")[0].source_name == "meeting_transcripts"
+    assert store.find_by_hash(digest)[0].source_name == "meeting_transcripts"
 
 
 def test_occurrences_count_up_on_repeat_sightings(store) -> None:
-    pseudonymizer = ConsistentPseudonymizer(store)
+    pseudonymizer = ConsistentPseudonymizer(store, salt=SALT)
     for _ in range(3):
         pseudonymizer.get_or_create_pseudonym("Ana Ruiz", "PERSON", "transcripts")
 
-    assert store.lookup("Ana Ruiz", "PERSON").occurrences == 3
+    assert store.lookup("PERSON", hash_value("Ana Ruiz", SALT)).occurrences == 3
 
 
 # ----------------------------------------------------------------------

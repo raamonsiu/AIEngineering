@@ -13,8 +13,13 @@ unanswerable, because nothing records who was ever in the corpus.
 Reversible pseudonymisation replaces each entity with a *stable fake
 value of the same kind*: a name becomes a name, an email becomes an
 email. The corpus keeps its shape, and the mapping table makes erasure a
-lookup. The cost is that the mapping table is itself personal data and
-has to be protected accordingly.
+lookup.
+
+The plaintext never leaves this module. Each detected value is turned
+into an HMAC-SHA256 under a server-side salt, and that digest is what the
+mapping store keys on (see ``mapping_store.hash_value``). Consistency and
+erasure both work on the digest, so the table stays useful without ever
+becoming a directory of the real people in the corpus.
 
 The consistency guarantee is per original value, not per document: the
 same "Juan Garcia" becomes the same "Carlos Martinez" in all four hundred
@@ -28,11 +33,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from faker import Faker
 
-from app.ingest.anonymization.mapping_store import JsonMappingStore, PseudonymMapping
+from app.ingest.anonymization.mapping_store import MappingStore, hash_value
 from app.ingest.anonymization.recognizers import (
     DEFAULT_SCORE_THRESHOLD,
     TARGET_ENTITIES,
@@ -58,13 +62,15 @@ class ConsistentPseudonymizer:
 
     def __init__(
         self,
-        store: JsonMappingStore,
+        store: MappingStore,
         *,
+        salt: str = "change-me-in-prod",
         locale: str = "es_ES",
         seed: int = 20260902,
         score_threshold: float = DEFAULT_SCORE_THRESHOLD,
     ) -> None:
         self.store = store
+        self.salt = salt
         self.faker = Faker(locale)
         # Seeded so a rebuild of the corpus from scratch produces the same
         # pseudonyms. Unseeded, re-indexing would rename every person and
@@ -85,6 +91,16 @@ class ConsistentPseudonymizer:
             "CLIENT_CODE": lambda: f"CLI-{self.faker.random_int(1000, 9999)}",
         }
 
+    def _fallback_pseudonym(self) -> str:
+        """For an entity type with no registered generator.
+
+        Deliberately looks like a redaction, not like content. Falling
+        back to a plausible word would put a real-looking value into the
+        corpus with nothing marking it as synthetic — and a reader cannot
+        tell an invented company name from a true one.
+        """
+        return f"REDACTED-{self.faker.uuid4()[:8]}"
+
     @property
     def analyzer(self):
         if self._analyzer is None:
@@ -92,23 +108,13 @@ class ConsistentPseudonymizer:
         return self._analyzer
 
     def get_or_create_pseudonym(self, original: str, entity_type: str, source_name: str) -> str:
-        existing = self.store.lookup(original, entity_type)
-        if existing is not None:
-            self.store.touch(original, entity_type)
-            return existing.pseudonym
-
-        generator = self.generators.get(entity_type, self.faker.word)
-        pseudonym = generator()
-        self.store.save(
-            PseudonymMapping(
-                original_value=original,
-                pseudonym=pseudonym,
-                entity_type=entity_type,
-                first_seen_at=datetime.now(timezone.utc).isoformat(),
-                source_name=source_name,
-            )
+        """Hash first, then look up. The store never receives ``original``."""
+        return self.store.lookup_or_create(
+            entity_type=entity_type,
+            original_hash=hash_value(original, self.salt),
+            factory=self.generators.get(entity_type, self._fallback_pseudonym),
+            source_name=source_name,
         )
-        return pseudonym
 
     def anonymize(self, text: str, *, source_name: str) -> tuple[str, AnonymizationReport]:
         """Replace every detected entity, returning the new text and a report."""

@@ -1,52 +1,96 @@
 """The pseudonym mapping table.
 
-This is the piece that makes GDPR Article 17 (right to erasure)
-answerable at all. Without it, "remove everything about this person" has
-no starting point: the pseudonyms are scattered across the corpus and
-nothing records that `Carlos Martinez` stands for a real individual, so
-there is nothing to look up and nothing to delete.
+This is what makes GDPR Article 17 (right to erasure) answerable. Without
+it, "remove everything about this person" has no starting point: the
+pseudonyms are scattered through the corpus and nothing records that
+``Carlos Martinez`` stands for a real individual.
 
-Backed by a JSON file. That is the deliberately simple option for now —
-the choice of a real encrypted store is revisited when the vector layer
-lands, and this interface (``lookup`` / ``save`` / ``forget`` /
-``find_by_original``) is the whole surface that would have to be
-reimplemented. Two limitations are stated rather than hidden:
+**The store never sees a plaintext value.** It is keyed on an HMAC-SHA256
+of the original, computed with a server-side salt that lives in
+configuration and never here. That asymmetry is the whole design:
 
-- **Not encrypted at rest.** The mapping table is itself personal data
-  under GDPR, so in production it needs encryption and its own access
-  control. Here it is a plain file kept out of version control.
-- **Rewrites the whole file per save.** Fine for a corpus of this size,
-  wrong for a large one.
+- consistency still works — hash the value, find the row;
+- erasure still works — hash the value, delete the row;
+- but the table cannot be *enumerated*. A leaked mapping file is a list of
+  opaque digests and fake names, not a directory of every real person in
+  the corpus.
 
-The store is keyed on ``(original_value, entity_type)`` rather than on the
-value alone: the same string can legitimately be two different kinds of
-entity, and collapsing them would make one erasure delete the other.
+Storing plaintext would make this file the single highest-value target in
+the system: the corpus is pseudonymised, so the only place the real
+identities would exist in the clear is here. An HMAC (not a bare hash)
+because a plain SHA-256 of a personal name is reversible by dictionary
+attack in seconds — the secret salt is what stops that.
+
+``JsonMappingStore`` is the simple backing chosen for now. The
+``MappingStore`` protocol is the seam: moving to a database later is a new
+implementation of four methods, not a rewrite of the pipeline.
 """
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional, Protocol, runtime_checkable
+
+
+def hash_value(value: str, salt: str) -> str:
+    """HMAC-SHA256 of ``value`` under ``salt``.
+
+    The single place a plaintext personal value is turned into a key. Note
+    this is a keyed MAC, not a digest: without the salt the mapping table
+    cannot be brute-forced against a name list.
+    """
+    return hmac.new(salt.encode("utf-8"), value.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 @dataclass(frozen=True)
 class PseudonymMapping:
-    original_value: str
+    """One mapping. Note what is absent: the original value."""
+
+    original_hash: str
     pseudonym: str
     entity_type: str
     first_seen_at: str
-    # Which catalog source this value first appeared in. Persisted so
-    # "which sources mention this person?" is answerable without walking
-    # the whole corpus — which is step 2 of an erasure request.
+    # Which catalog source this value first appeared in. Not personal data
+    # on its own, and it answers "which sources mention this person?" —
+    # step 2 of an erasure request — without walking the whole corpus.
     source_name: str
     occurrences: int = 1
 
 
+@runtime_checkable
+class MappingStore(Protocol):
+    """The seam. Four methods, so the backing can change without the
+    pipeline noticing."""
+
+    def lookup_or_create(
+        self, *, entity_type: str, original_hash: str, factory: Callable[[], str],
+        source_name: str,
+    ) -> str: ...
+
+    def lookup(self, entity_type: str, original_hash: str) -> Optional[PseudonymMapping]: ...
+
+    def forget(self, original_hash: str) -> list[PseudonymMapping]: ...
+
+    def all_mappings(self) -> list[PseudonymMapping]: ...
+
+
 class JsonMappingStore:
-    """File-backed pseudonym store."""
+    """File-backed mapping store.
+
+    Two limitations, stated rather than hidden:
+
+    - **Not encrypted at rest.** The file holds no plaintext values, so a
+      leak is far less damaging than it would be otherwise, but the
+      pseudonym/hash pairs are still regulated data and in production
+      belong behind encryption and access control.
+    - **Rewrites the whole file per save.** Fine at this corpus size,
+      wrong at a large one.
+    """
 
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
@@ -54,80 +98,86 @@ class JsonMappingStore:
         self._load()
 
     @staticmethod
-    def _key(original: str, entity_type: str) -> str:
-        return f"{entity_type}\x1f{original}"
+    def _key(entity_type: str, original_hash: str) -> str:
+        # Keyed on (type, hash), not hash alone: the same string can
+        # legitimately be two kinds of entity, and collapsing them would
+        # make one erasure silently delete the other.
+        return f"{entity_type}\x1f{original_hash}"
 
     def _load(self) -> None:
         if not self.path.exists():
             return
         raw = json.loads(self.path.read_text(encoding="utf-8") or "{}")
-        self._by_key = {
-            key: PseudonymMapping(**value) for key, value in raw.get("mappings", {}).items()
-        }
+        self._by_key = {k: PseudonymMapping(**v) for k, v in raw.get("mappings", {}).items()}
 
     def _flush(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "version": 1,
+            "version": 2,
             "updated_at": datetime.now(timezone.utc).isoformat(),
-            "mappings": {key: asdict(value) for key, value in self._by_key.items()},
+            "mappings": {k: asdict(v) for k, v in self._by_key.items()},
         }
         self.path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # -- read ----------------------------------------------------------
-    def lookup(self, original: str, entity_type: str) -> Optional[PseudonymMapping]:
-        return self._by_key.get(self._key(original, entity_type))
+    def lookup(self, entity_type: str, original_hash: str) -> Optional[PseudonymMapping]:
+        return self._by_key.get(self._key(entity_type, original_hash))
 
-    def find_by_original(self, original: str) -> list[PseudonymMapping]:
-        """Every mapping for a value, across entity types.
-
-        Erasure starts here: a person may appear as a full name in one
-        document and as an email in another, and both have to be found
-        from one request.
-        """
-        needle = original.strip().lower()
-        return [m for m in self._by_key.values() if m.original_value.strip().lower() == needle]
+    def find_by_hash(self, original_hash: str) -> list[PseudonymMapping]:
+        """Every mapping for a value, across entity types. Erasure starts
+        here: a person may appear as a name in one document and as an
+        email in another, and one request has to find both."""
+        return [m for m in self._by_key.values() if m.original_hash == original_hash]
 
     def find_by_pseudonym(self, pseudonym: str) -> Optional[PseudonymMapping]:
         return next((m for m in self._by_key.values() if m.pseudonym == pseudonym), None)
 
-    def all_pseudonyms(self) -> list[PseudonymMapping]:
+    def all_mappings(self) -> list[PseudonymMapping]:
         return list(self._by_key.values())
 
     # -- write ----------------------------------------------------------
-    def save(self, mapping: PseudonymMapping) -> PseudonymMapping:
-        self._by_key[self._key(mapping.original_value, mapping.entity_type)] = mapping
-        self._flush()
-        return mapping
-
-    def touch(self, original: str, entity_type: str) -> None:
-        """Count another sighting. The occurrence count is what tells you
-        whether a pseudonym appears once or four hundred times, which
-        changes how much of the index an erasure request will touch."""
-        key = self._key(original, entity_type)
+    def lookup_or_create(
+        self, *, entity_type: str, original_hash: str, factory: Callable[[], str],
+        source_name: str,
+    ) -> str:
+        """Idempotent: the same ``(entity_type, hash)`` always returns the
+        same pseudonym, whatever the call order."""
+        key = self._key(entity_type, original_hash)
         existing = self._by_key.get(key)
         if existing is not None:
             self._by_key[key] = PseudonymMapping(
                 **{**asdict(existing), "occurrences": existing.occurrences + 1}
             )
+            self._flush()
+            return existing.pseudonym
 
-    def forget(self, original: str) -> list[PseudonymMapping]:
-        """Erase every mapping for a value and return what was removed.
+        mapping = PseudonymMapping(
+            original_hash=original_hash,
+            pseudonym=factory(),
+            entity_type=entity_type,
+            first_seen_at=datetime.now(timezone.utc).isoformat(),
+            source_name=source_name,
+        )
+        self._by_key[key] = mapping
+        self._flush()
+        return mapping.pseudonym
 
-        Step 4 of an erasure request. Deleting the mapping is not
-        cosmetic: afterwards the link between the real person and the
-        pseudonyms left in any un-reindexed corpus is gone, and if the
-        person reappears in a future document they receive a fresh
-        pseudonym with no relation to the old one.
+    def forget(self, original_hash: str) -> list[PseudonymMapping]:
+        """Erase every mapping for a hashed value; return what was removed.
 
-        The caller is responsible for steps 2-3 (removing the affected
-        chunks from the index) and step 5 (the audit log entry). This
-        method returns the removed mappings precisely so the caller can
-        do both.
+        Step 4 of an erasure request. Afterwards the link between the real
+        person and any pseudonyms still sitting in an un-reindexed corpus
+        is gone, and if they reappear in a future document they get a
+        fresh pseudonym unrelated to the old one.
+
+        Steps 2-3 (dropping the affected chunks from the index) and step 5
+        (the audit log entry) belong to the caller — which is why the
+        removed mappings are returned rather than swallowed.
         """
-        removed = self.find_by_original(original)
+        removed = self.find_by_hash(original_hash)
         for mapping in removed:
-            self._by_key.pop(self._key(mapping.original_value, mapping.entity_type), None)
+            self._by_key.pop(self._key(mapping.entity_type, mapping.original_hash), None)
         if removed:
             self._flush()
         return removed
+

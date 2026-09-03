@@ -144,6 +144,7 @@ def get_pseudonymizer() -> ConsistentPseudonymizer:
     settings = get_settings()
     return ConsistentPseudonymizer(
         get_mapping_store(),
+        salt=settings.PSEUDONYM_HASH_SALT,
         locale=settings.PSEUDONYM_LOCALE,
         score_threshold=settings.PII_SCORE_THRESHOLD,
     )
