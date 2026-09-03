@@ -48,6 +48,7 @@ sources:
     sensitivity: {contains_pii: false}
     lineage: {upstream: manual}
     decision: exclude
+    decision_reason: Stale since January 2024.
     notes: Stale since January 2024.
 """
 

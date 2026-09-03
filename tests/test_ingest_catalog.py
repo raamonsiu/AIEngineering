@@ -48,6 +48,7 @@ sources:
     sensitivity: {contains_pii: false}
     lineage: {upstream: manual-spreadsheet}
     decision: exclude
+    decision_reason: Last update January 2024; rates are stale.
     notes: Does not reflect current rates.
   - name: undecided_source
     description: Needs a human look first.
@@ -61,6 +62,7 @@ sources:
     sensitivity: {contains_pii: true, pii_types: [personal_names]}
     lineage: {upstream: transcription-service}
     decision: review
+    decision_reason: Two incompatible transcript formats coexist.
 """
 
 
@@ -116,6 +118,77 @@ def test_location_scheme_resolves_to_a_local_path(catalog, tmp_path) -> None:
 def test_unknown_source_name_raises(catalog: DataCatalog) -> None:
     with pytest.raises(KeyError):
         catalog.get("does_not_exist")
+
+
+def test_an_unknown_key_is_rejected_rather_than_ignored(tmp_path) -> None:
+    """A mistyped field would otherwise sit in the YAML looking like
+    configuration while doing nothing, and the field it was meant to be
+    would silently keep its default."""
+    typo = MINIMAL_YAML.replace("    format: json", "    formt: json\n    format: json")
+    path = tmp_path / "typo.yaml"
+    path.write_text(typo, encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="formt"):
+        load_catalog(path)
+
+
+def test_a_non_include_decision_without_a_reason_is_rejected(tmp_path) -> None:
+    """An exclusion with no recorded justification is indistinguishable
+    from an oversight six months later."""
+    without = MINIMAL_YAML.replace(
+        "    decision_reason: Last update January 2024; rates are stale.\n", ""
+    )
+    path = tmp_path / "unjustified.yaml"
+    path.write_text(without, encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="decision_reason"):
+        load_catalog(path)
+
+
+def test_include_needs_no_reason(tmp_path) -> None:
+    """The burden of justification is on leaving data out, not on using it."""
+    catalog = load_catalog(_write(tmp_path, MINIMAL_YAML))
+
+    assert catalog.get("good_source").decision_reason is None
+
+
+def test_duplicate_source_names_are_rejected(tmp_path) -> None:
+    """Two sources sharing a name means one silently shadows the other in
+    every lookup, and documents from both claim the same provenance."""
+    duplicated = MINIMAL_YAML.replace("name: stale_source", "name: good_source")
+    path = tmp_path / "dupes.yaml"
+    path.write_text(duplicated, encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="duplicate source name"):
+        load_catalog(path)
+
+
+def test_an_unsupported_format_fails_at_load_not_mid_run(tmp_path) -> None:
+    """Otherwise the typo surfaces as 'no parser registered' halfway
+    through a run, after other sources have already been processed."""
+    typo = MINIMAL_YAML.replace("format: json", "format: jsno")
+    path = tmp_path / "badformat.yaml"
+    path.write_text(typo, encoding="utf-8")
+
+    with pytest.raises(ValidationError):
+        load_catalog(path)
+
+
+def test_source_names_must_be_usable_as_identifiers(tmp_path) -> None:
+    """The name is what a caller passes to the indexing endpoint and what
+    every document carries as source_name."""
+    shouty = MINIMAL_YAML.replace("name: good_source", "name: Good Source")
+    path = tmp_path / "shouty.yaml"
+    path.write_text(shouty, encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="snake_case"):
+        load_catalog(path)
+
+
+def _write(tmp_path, text: str):
+    path = tmp_path / "catalog.yaml"
+    path.write_text(text, encoding="utf-8")
+    return path
 
 
 def test_a_malformed_catalog_fails_at_load_not_six_stages_later(tmp_path) -> None:

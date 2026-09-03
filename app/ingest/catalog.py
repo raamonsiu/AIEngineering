@@ -24,10 +24,10 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum, IntEnum
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class IngestionDecision(str, Enum):
@@ -45,6 +45,8 @@ class QualityScore(IntEnum):
 
 
 class Volume(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     records: int
     size_mb: float
 
@@ -58,12 +60,16 @@ class Refresh(BaseModel):
     one that nobody has noticed yet.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     declared: str
     observed_last_update: date
     observed_lag_days: int
 
 
 class Quality(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     completeness: int = Field(ge=1, le=5)
     consistency: int = Field(ge=1, le=5)
     actuality: int = Field(ge=1, le=5)
@@ -89,6 +95,8 @@ class Quality(BaseModel):
 
 
 class Sensitivity(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     contains_pii: bool
     pii_types: list[str] = Field(default_factory=list)
     access_restrictions: Optional[str] = None
@@ -104,24 +112,66 @@ class Lineage(BaseModel):
     place that context survives by construction.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     upstream: str
     transformations: list[str] = Field(default_factory=list)
 
 
+# Formats the ingest subsystem has a parser for. Declaring this as a
+# Literal rather than a free string means a typo ("jsno") fails when the
+# catalog loads, not later as "no parser registered for format" halfway
+# through a run.
+SourceFormat = Literal["json", "txt", "xlsx", "docx", "pdf", "csv"]
+
+
 class CatalogSource(BaseModel):
+    # Unknown keys are rejected rather than ignored. A mistyped field in
+    # the YAML would otherwise sit there looking like configuration while
+    # doing nothing — and the field it was meant to be would silently keep
+    # its default. That is precisely the class of bug a typed catalog
+    # exists to prevent.
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     description: str
     location: str
     owner_technical: str
     owner_business: str
-    format: str
+    format: SourceFormat
     volume: Volume
     refresh: Refresh
     quality: Quality
     sensitivity: Sensitivity
     lineage: Lineage
     decision: IngestionDecision
+    # Mandatory when the decision is not `include` — see the validator.
+    decision_reason: Optional[str] = None
     notes: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def _name_is_snake_case(cls, value: str) -> str:
+        """The name is an identifier: it is what a caller passes to the
+        indexing endpoint and what every document carries as
+        ``source_name``. Keeping it to lowercase snake_case stops the
+        same source being addressable two ways."""
+        if not value or not all(c.islower() or c.isdigit() or c == "_" for c in value):
+            raise ValueError(f"source name must be lowercase snake_case, got {value!r}")
+        return value
+
+    @model_validator(mode="after")
+    def _non_include_decisions_need_a_reason(self) -> "CatalogSource":
+        """Excluding a source is discipline, not neglect — but only if the
+        reason is written down. An exclusion with no recorded justification
+        is indistinguishable from an oversight six months later, and
+        nobody will dare re-include it or defend it."""
+        if self.decision is not IngestionDecision.INCLUDE and not (self.decision_reason or "").strip():
+            raise ValueError(
+                f"source {self.name!r} has decision={self.decision.value!r} and no "
+                f"decision_reason; a non-include decision must be justified in the catalog"
+            )
+        return self
     # Which pipeline the source takes. "tabular" sources go through the
     # pandas + Pandera cleaning path; "text" sources go through the
     # text-level cleaning path. Declared per source rather than inferred
@@ -143,10 +193,25 @@ class CatalogSource(BaseModel):
 
 
 class DataCatalog(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     version: int
     last_audited: date
     corpus_root: str
     sources: list[CatalogSource]
+
+    @field_validator("sources")
+    @classmethod
+    def _names_are_unique(cls, sources: list[CatalogSource]) -> list[CatalogSource]:
+        """Two sources sharing a name means one silently shadows the other
+        in every lookup, and documents from both claim the same
+        provenance."""
+        seen: set[str] = set()
+        for source in sources:
+            if source.name in seen:
+                raise ValueError(f"duplicate source name in catalog: {source.name!r}")
+            seen.add(source.name)
+        return sources
 
     def included_sources(self) -> list[CatalogSource]:
         return [s for s in self.sources if s.decision == IngestionDecision.INCLUDE]

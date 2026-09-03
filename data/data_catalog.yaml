@@ -87,6 +87,11 @@ sources:
       upstream: automated-transcription-service
       transformations: [speech_to_text, manual_review]
     decision: review
+    decision_reason: >
+      Consistencia 2/5: dos formatos de transcripción incompatibles conviven, y
+      las 5 anteriores a 2024 no permiten atribuir quién dijo qué. El parser las
+      maneja, pero el sistema todavía no pondera distinto una afirmación sin
+      atribuir, así que la decisión de producto está pendiente.
     notes: >
       Dos eras de formato: las 7 de 2024 en adelante traen `[hh:mm:ss]
       Hablante:` en cada línea; las 5 anteriores son prosa corrida sin
@@ -198,6 +203,11 @@ sources:
       upstream: finance-spreadsheet-manual
       transformations: []
     decision: exclude
+    decision_reason: >
+      Actualidad 1/5: última modificación en enero de 2024 frente a un ciclo
+      declarado anual, 2,6 ciclos sin tocar. Confirmado con finanzas que no
+      refleja las tarifas vigentes. Se reincorporará cuando entreguen versión
+      refrescada.
     notes: >
       El caso de libro: oficialmente autoritativa, en la práctica abandonada.
       Última modificación enero de 2024 frente a un ciclo declarado anual —

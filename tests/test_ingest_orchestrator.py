@@ -63,6 +63,7 @@ sources:
     sensitivity: {contains_pii: false}
     lineage: {upstream: manual-spreadsheet}
     decision: exclude
+    decision_reason: Last update January 2024; rates are stale.
     notes: Last update January 2024; does not reflect current rates.
 """
 
