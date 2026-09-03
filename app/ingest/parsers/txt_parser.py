@@ -69,6 +69,7 @@ class TranscriptTxtParser:
                     ParsedUnit(
                         content=line.strip(),
                         document_id=doc_id,
+                        unit_key=f"turn-{index:04d}",
                         section_title=f"turno {index}",
                         extra={"format_era": "tagged", "speaker": None, "untagged_line": True},
                     )
@@ -78,6 +79,7 @@ class TranscriptTxtParser:
                 ParsedUnit(
                     content=match.group("text").strip(),
                     document_id=doc_id,
+                    unit_key=f"turn-{index:04d}",
                     section_title=f"turno {index}",
                     document_author=match.group("speaker").strip(),
                     extra={
@@ -96,6 +98,7 @@ class TranscriptTxtParser:
             ParsedUnit(
                 content=paragraph,
                 document_id=doc_id,
+                unit_key=f"para-{index:04d}",
                 section_title=f"parrafo {index}",
                 extra={
                     "format_era": "legacy_untagged",

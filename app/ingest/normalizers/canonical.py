@@ -19,20 +19,38 @@ from app.ingest.catalog import CatalogSource
 from app.ingest.models import Document, DocumentMetadata, ParsedUnit
 
 
+def build_document_id(source_name: str, unit: ParsedUnit) -> str:
+    """Compose the stable, deterministic id: ``source:document:unit``.
+
+    Readable rather than hashed, so a failing document can be located from
+    a log line without a lookup table. The ``unit_key`` segment is what
+    makes it unique *below* document level — without it every turn of a
+    transcript would share one id, and the index could not tell them
+    apart or replace them individually on re-ingestion.
+    """
+    parts = [source_name, unit.document_id]
+    if unit.unit_key:
+        parts.append(unit.unit_key)
+    return ":".join(parts)
+
+
 def to_document(
     unit: ParsedUnit,
     *,
     source: CatalogSource,
+    catalog_version: str,
     ingested_at: datetime,
     stages: list[str],
     anonymized: bool = False,
 ) -> Document:
     return Document(
+        id=build_document_id(source.name, unit),
         content=unit.content,
         metadata=DocumentMetadata(
             # --- catalog-provided: authoritative -------------------------
             source_name=source.name,
             source_location=source.location,
+            source_version=catalog_version,
             lineage_upstream=source.lineage.upstream,
             contains_pii=source.sensitivity.contains_pii,
             # --- pipeline run --------------------------------------------

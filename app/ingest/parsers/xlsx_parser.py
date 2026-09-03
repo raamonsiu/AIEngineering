@@ -59,6 +59,7 @@ class RateCardXlsxParser:
                 ParsedUnit(
                     content=f"## {sheet.title}\n\n{_rows_to_markdown(rows)}",
                     document_id=doc_id,
+                    unit_key=f"sheet-{sheet.title}",
                     document_title=doc_id,
                     section_title=sheet.title,
                     extra={"sheet": sheet.title, "rows": len(rows) - 1},

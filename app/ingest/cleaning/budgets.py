@@ -156,6 +156,11 @@ def clean_budget_records(df: pd.DataFrame) -> pd.DataFrame:
 
     if "currency" in out:
         out["currency"] = normalise_currency(out["currency"])
+    if "client_code" in out:
+        # Case is accidental here, unlike in client_name: the code is a
+        # machine identifier with one canonical spelling, so folding it is
+        # the scalpel and not the chainsaw.
+        out["client_code"] = out["client_code"].str.upper()
     if "total_amount" in out:
         out["total_amount"] = out["total_amount"].map(parse_amount).astype("Float64")
     if "hours_estimated" in out:

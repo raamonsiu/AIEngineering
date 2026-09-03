@@ -21,7 +21,7 @@ git, and the whole pipeline downstream obeys it.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Annotated
+from typing import Annotated, Optional
 
 import pandas as pd
 import pandera.pandas as pa
@@ -49,6 +49,14 @@ class BudgetRecord(DataFrameModel):
     client_name: Series[str] = Field(
         nullable=False,
         str_length={"min_value": 2, "max_value": 200},
+    )
+    # Optional at schema level (not every export carries it) but shape-checked
+    # when present. A client code is the one field that maps one-to-one to a
+    # real client, so a malformed one is a broken join, not a cosmetic issue.
+    client_code: Optional[Series[str]] = Field(
+        nullable=True,
+        str_matches=CLIENT_CODE_PATTERN,
+        description="Internal client identifier, CLI-NNNN",
     )
     total_amount: Series[float] = Field(
         ge=0,

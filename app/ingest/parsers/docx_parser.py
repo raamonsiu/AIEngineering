@@ -58,6 +58,7 @@ class ProposalDocxParser:
                 ParsedUnit(
                     content=(f"## {current_heading}\n\n{body}" if current_heading else body),
                     document_id=doc_id,
+                    unit_key=f"section-{len(units) + 1:04d}",
                     document_title=title,
                     document_author=author,
                     section_title=current_heading,

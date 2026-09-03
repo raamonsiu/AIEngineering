@@ -38,6 +38,11 @@ class ParsedUnit(BaseModel):
 
     content: str
     document_id: str
+    # Distinguishes this unit from its siblings inside the same document:
+    # a turn number, a page, a section index, a sheet name. The parser
+    # knows it; nobody downstream can reconstruct it. It is what makes the
+    # canonical Document id addressable below document granularity.
+    unit_key: Optional[str] = None
     document_title: Optional[str] = None
     document_created_at: Optional[datetime] = None
     document_author: Optional[str] = None
@@ -69,6 +74,11 @@ class DocumentMetadata(BaseModel):
     source_name: str
     source_location: str
     ingested_at: datetime
+    # The catalog version in force when this document was produced. Without
+    # it, a document is un-interpretable after the catalog changes: you
+    # cannot tell whether it was built under the rules you are reading now
+    # or under the ones that applied three months ago.
+    source_version: str
 
     # --- parser-provided ------------------------------------------------
     document_id: str
@@ -99,5 +109,15 @@ class Document(BaseModel):
     chunking, embedding and retrieval operate exclusively on this type.
     """
 
+    # Deterministic and stable across re-ingestions, composed as
+    # ``source:document:unit``. This is what lets the downstream index
+    # *replace* a document rather than accumulate a second copy of it every
+    # time the pipeline runs — without it, re-indexing silently doubles the
+    # corpus and retrieval starts returning the same passage twice.
+    #
+    # Positional rather than content-derived on purpose: a hash of the text
+    # would change whenever an edit changed the text, which is exactly when
+    # you most want the id to stay put so the old version is overwritten.
+    id: str
     content: str
     metadata: DocumentMetadata

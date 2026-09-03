@@ -48,6 +48,16 @@ from app.ingest.parsers import DEFAULT_PARSERS, Parser
 logger = logging.getLogger(__name__)
 
 
+def _duplicate_ids(documents: list[Document]) -> list[str]:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for document in documents:
+        if document.id in seen:
+            duplicates.append(document.id)
+        seen.add(document.id)
+    return duplicates
+
+
 @dataclass
 class SourceReport:
     """What the pipeline did to one source, stage by stage.
@@ -68,6 +78,7 @@ class SourceReport:
     records_discarded: int = 0
     entities_anonymized: int = 0
     divergent_duplicates: list[str] = field(default_factory=list)
+    duplicate_ids: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     skipped_reason: Optional[str] = None
 
@@ -161,12 +172,23 @@ class IngestionPipeline:
             to_document(
                 unit,
                 source=source,
+                catalog_version=str(self.catalog.version),
                 ingested_at=run.started_at,
                 stages=stages,
                 anonymized=anonymized,
             )
             for unit in units
         ]
+        report.duplicate_ids = _duplicate_ids(documents)
+        if report.duplicate_ids:
+            # A collision means a parser is emitting an ambiguous unit_key.
+            # Left alone it would make the downstream index silently drop
+            # one of the two documents, so it is surfaced as a defect of
+            # this run rather than discovered as missing content later.
+            report.errors.append(
+                f"{len(report.duplicate_ids)} duplicate document id(s): "
+                f"{report.duplicate_ids[:3]}"
+            )
         report.documents_emitted = len(documents)
         run.documents.extend(documents)
         run.reports.append(report)

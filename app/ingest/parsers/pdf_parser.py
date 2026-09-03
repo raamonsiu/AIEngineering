@@ -49,6 +49,7 @@ class ContractPdfParser:
                 ParsedUnit(
                     content=text,
                     document_id=doc_id,
+                    unit_key=f"page-{int(page_no):04d}",
                     document_title=doc_id,
                     page_number=int(page_no),
                     extra={"extraction_method": result.method},
@@ -59,6 +60,7 @@ class ContractPdfParser:
                 ParsedUnit(
                     content=result.text.strip(),
                     document_id=doc_id,
+                    unit_key="whole",
                     document_title=doc_id,
                     extra={"extraction_method": result.method, "pagination": "unavailable"},
                 )

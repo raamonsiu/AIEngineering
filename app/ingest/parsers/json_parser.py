@@ -83,6 +83,11 @@ class BudgetJsonParser:
         return ParsedUnit(
             content="\n".join(lines),
             document_id=budget_id,
+            # One unit per budget, but the source file is part of the key:
+            # a divergent duplicate lives in two files under one id, and
+            # collapsing them before the cleaning layer has ruled would
+            # hide the very defect it exists to resolve.
+            unit_key=str(record.get("_source_file", "")).rsplit("/", 1)[-1],
             document_title=f"Presupuesto {budget_id} — {client}",
             document_author=record.get("account_manager"),
             extra={
