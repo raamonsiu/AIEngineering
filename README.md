@@ -85,14 +85,23 @@ cag-estimator/
 │   │   ├── normalizers/        -- ParsedUnit -> Document, deterministic ids
 │   │   ├── orchestrator.py     -- Runs the whole offline pipeline per catalog source
 │   │   └── audit.py            -- Renders the catalog as a human-readable audit report
+│   ├── embedding_pipeline/     -- Chunking + embeddings (Session 7)
+│   │   ├── schemas.py          -- Budget/Component in, Chunk/EmbeddedChunk out
+│   │   ├── chunker.py          -- JSONStructuralChunker: one component = one chunk
+│   │   ├── embedder.py         -- OpenAIEmbedder: batched text-embedding-3-small calls
+│   │   ├── router.py           -- POST /api/v1/embeddings/ingest
+│   │   └── SANITY_CHECK.md     -- The three-pair similarity check, with measured values
 │   ├── context/
 │   │   └── examples.py         -- CAG reference examples for the free-text flow
 │   └── schemas/
 │       ├── estimation.py       -- Structured: Request, Draft, Result, Response
 │       └── estimations.py      -- Free-text: transcription in, Markdown + evaluation out
 ├── streamlit_app.py         -- Streamlit UI: structured form + streaming chat + project session
+├── scripts/
+│   └── compare.py           -- CLI: cosine similarity between the embeddings of two texts
 ├── data/
 │   ├── build_corpus.py      -- Deterministic generator for the synthetic corpus
+│   ├── budgets_sample.json  -- 15 historical budgets, ready to POST to /embeddings/ingest
 │   ├── data_catalog.yaml    -- The audited source catalog (the pipeline obeys it)
 │   ├── AUDIT_REPORT.md      -- Generated from the catalog; not edited by hand
 │   └── corpus/              -- The corpus itself: budgets, transcripts, proposals, contracts, rate card
@@ -177,6 +186,7 @@ See [`.env.example`](.env.example) for the full list. Beyond the API keys and mo
 | GET    | `/api/v1/index/runs/{run_id}`       | Status and per-source report of an indexing run |
 | GET    | `/api/v1/index/audit`               | The data audit report as Markdown, generated from the catalog |
 | POST   | `/api/v1/query`                     | Online retrieval pipeline. **501** until there is a vector index |
+| POST   | `/api/v1/embeddings/ingest`         | Chunk budgets structurally and embed every chunk (vectors returned, not stored) |
 
 The structured endpoint is the main one: typed request, validated `EstimationResult`, both cache layers. The two free-text endpoints take a raw meeting transcription and return Markdown, they share the same input guardrails, wrapper and exact-match cache, but not the semantic cache (whose bucket is keyed on the typed form options a free-text request doesn't have). `/estimate/text` also runs a static structural evaluation of the generated Markdown (`app/services/evaluation.py`); `/estimate/stream` is what the Streamlit chat consumes.
 
@@ -335,6 +345,38 @@ Known limits, stated rather than hidden: the JSON backing is not encrypted at re
 ### Where CAG stops being viable (Session 6)
 
 [`CAG_LIMITS.md`](CAG_LIMITS.md) holds the decision, with numbers measured from this repository's own stress run rather than assumed. The short version: the corpus **fits** (15.6% of the window) and is **cheap** ($0.0030 per query), and CAG is still the wrong architecture here. Two of the four ceilings fail — latency (9.5 s projected against a 3 s conversational budget) and quality under load (100% of superseded facts survive) — and the decision tree does not even reach them: traceability and per-user access control are structural requirements that no amount of context-window headroom can satisfy. It is the difference between "it does not fit" and "it does not serve".
+
+### Embeddings: structural chunking and vectors (Session 7)
+
+`POST /api/v1/embeddings/ingest` takes historical budgets and returns one vector per budget component. It is the first half of retrieval; the second half needs somewhere to put the vectors, which is Session 8. Nothing is persisted — the response carries the vectors and the service forgets them.
+
+**Chunking is structural, not size-based.** A budget is not prose: somebody already divided it into components, each with its own scope, stack and estimate, and that division carries more meaning than any character count could recover. So one component is one chunk, with no overlap (overlap repairs boundaries a blind splitter chose badly, and there are no blind boundaries here) and no splitting of long descriptions (a component that does not fit is a *finding* — one component doing the job of three — and `chunker.py` logs it rather than hiding it behind a splitter).
+
+Each chunk's text carries a two-line header with the parent budget's summary, sector, year and main technology. Without it the vector for "OAuth 2.0 authentication backend" is identical whether the work was quoted for a bank or a bike shop. What stays **out** of the text is everything meant for filtering — `budget_id`, `component_id`, `client_sector`, `main_technology`, `year`, `complexity`, `estimated_hours` — because "2024" as a vector is noise while "2024" as a filter is a hard constraint.
+
+The embedder calls `text-embedding-3-small` in batches of 100, reassembles the response by the API's own `index` (a vector silently attached to the wrong chunk is the hardest bug here to notice: nothing errors, retrieval just returns the wrong budget), retries `RateLimitError` three times at 1s/2s/4s and propagates everything else. The SDK's own retries are disabled so that policy is the whole policy rather than one factor of a product. The model is pinned in `embedder.py` rather than read from `EMBEDDING_MODEL`: that variable belongs to the semantic cache, and the pipeline's token counts and price constant are only correct for one model, so letting the two drift apart on one env var would silently invalidate both.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/embeddings/ingest \
+  -H 'Content-Type: application/json' \
+  -d @data/budgets_sample.json
+```
+
+`data/budgets_sample.json` is already shaped as the request body, so it can be pasted straight into `/docs`. Over its 15 budgets the endpoint produces 67 chunks and 6,483 tokens in a single API call, for about $0.00013. The response is 2 MB: 1536 floats per chunk serialise to roughly 30 KB each.
+
+**`scripts/compare.py`** is the sanity check: it embeds two texts and prints the cosine similarity between them, computed by hand with `math.fsum`/`math.hypot` (no numpy for three lines of arithmetic). Run it from the repository root either way, since settings are read from `.env` relative to the working directory:
+
+```bash
+# Outside the container
+uv run python scripts/compare.py \
+  --text-a "OAuth 2.0 authentication backend for fintech" \
+  --text-b "JWT-based authorization service for banking app"
+
+# Inside it
+docker compose exec cag-estimator python scripts/compare.py --text-a "..." --text-b "..."
+```
+
+`--verbose` shows the embedder's per-batch log (tokens, latency) on stderr; stdout stays the three lines of output. The measured results for the three required pairs are in [`app/embedding_pipeline/SANITY_CHECK.md`](app/embedding_pipeline/SANITY_CHECK.md) — the short version is that the ordering holds but the absolute values do not support a threshold, so retrieval will have to be top-k with hard filtering on metadata.
 
 ## Testing
 ```bash
