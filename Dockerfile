@@ -24,6 +24,9 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
 COPY app/ /app/app/
+# scripts/ holds compare.py, which the exercise expects to be runnable
+# with `docker compose exec`. Without this it only exists on the host.
+COPY scripts/ /app/scripts/
 
 RUN chown -R appuser:appgroup /app
 
