@@ -6,10 +6,13 @@ from functools import lru_cache
 
 import redis
 import structlog
+from fastapi import HTTPException
 from openai import OpenAI
 
 from app.cache.semantic import EstimationSemanticCache
 from app.config import get_settings
+from app.embedding_pipeline.chunker import JSONStructuralChunker
+from app.embedding_pipeline.embedder import OpenAIEmbedder
 from app.ingest.anonymization.mapping_store import JsonMappingStore
 from app.ingest.anonymization.pseudonymizer import ConsistentPseudonymizer
 from app.ingest.catalog import DataCatalog, load_catalog
@@ -165,3 +168,35 @@ def get_ingestion_pipeline() -> IngestionPipeline:
         corpus_root=Path(settings.CORPUS_ROOT),
         pseudonymizer=get_pseudonymizer(),
     )
+
+
+# ----------------------------------------------------------------------
+# Embedding pipeline (Session 7)
+# ----------------------------------------------------------------------
+
+
+@lru_cache
+def get_chunker() -> JSONStructuralChunker:
+    """Cached because the chunker is stateless but its tokenizer is not
+    free: ``tiktoken.encoding_for_model`` resolves and caches a BPE file on
+    first use, and a per-request chunker would pay that on every call."""
+    return JSONStructuralChunker()
+
+
+@lru_cache
+def get_embedder() -> OpenAIEmbedder:
+    """Embeddings are an OpenAI-only capability here.
+
+    ``Settings`` only guarantees that *one* provider key is configured, so
+    a deployment running on Anthropic alone reaches this point with no
+    client. That is a 503 (the service is not configured for this), not a
+    500 (something broke), and saying so at dependency-resolution time is
+    clearer than an AttributeError inside the embedder.
+    """
+    client = get_openai_client()
+    if client is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Embeddings require OPENAI_API_KEY, which is not configured.",
+        )
+    return OpenAIEmbedder(client)

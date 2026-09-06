@@ -30,6 +30,7 @@ dependencies = [
     "sse-starlette>=3.4.8",
     "streamlit>=1.61.1",
     "structlog>=26.1.0",
+    "tiktoken>=0.7.0",
     "uvicorn[standard]>=0.52.1",
 ]
 
